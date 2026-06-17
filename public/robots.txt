@@ -1,0 +1,34 @@
+# Robots.txt for Fewblocs Fleet Management Platform
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /_next/
+Disallow: /dashboard/
+Disallow: /vehicles/
+Disallow: /routes/
+Disallow: /dispatch/
+Disallow: /attachments/
+Disallow: /investigations/
+Disallow: /incidents/
+Disallow: /maintenance/
+Disallow: /profile/
+Disallow: /signin
+Disallow: /signup
+Disallow: /auth/
+
+# Allow public pages
+Allow: /
+Allow: /about
+Allow: /features
+Allow: /pricing
+Allow: /contact
+Allow: /blog
+Allow: /resources
+Allow: /demo
+
+# Sitemap location
+Sitemap: https://fewblocs.com/sitemap.xml
+
+# Crawl delay for respectful crawling
+Crawl-delay: 1 

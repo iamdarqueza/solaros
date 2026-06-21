@@ -29,6 +29,36 @@ export default function OverviewTab({ customer }: OverviewTabProps) {
   const totalPanels = installations.reduce((sum, i) => sum + i.panel_count, 0);
   const totalMonthlySavings = installations.reduce((sum, i) => sum + i.monthly_savings_usd, 0);
   const totalAnnualProduction = installations.reduce((sum, i) => sum + i.annual_production_kwh, 0);
+  const recentActivity = [
+    customer.last_service_date
+      ? {
+          label: "Maintenance completed",
+          date: customer.last_service_date,
+          detail: "Most recent technician visit returned to service history.",
+        }
+      : null,
+    customer.open_tickets > 0
+      ? {
+          label: "Support ticket created",
+          date: customer.upcoming_maintenance_date || customer.last_service_date || customer.created_at,
+          detail: `${customer.open_tickets} open ticket${customer.open_tickets === 1 ? "" : "s"} may create or link to work orders.`,
+        }
+      : null,
+    customer.active_warranties > 0
+      ? {
+          label: "Warranty uploaded",
+          date: installations[0]?.install_date || customer.created_at,
+          detail: `${customer.active_warranties} active warranty record${customer.active_warranties === 1 ? "" : "s"} connected to installed systems.`,
+        }
+      : null,
+    installations[0]
+      ? {
+          label: "Solar system installed",
+          date: installations[0].install_date,
+          detail: `${installations[0].system_size_kw} kW system at ${installations[0].site_address}.`,
+        }
+      : null,
+  ].filter(Boolean) as Array<{ label: string; date: string; detail: string }>;
 
   if (loading) return <TabSkeleton />;
 
@@ -144,19 +174,24 @@ export default function OverviewTab({ customer }: OverviewTabProps) {
       </div>
 
       {/* Account Summary */}
-      <SectionCard>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <SectionCard>
         <div className="p-5">
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Account Summary</h3>
-          <div className="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-4">
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Customer Record Summary</h3>
+          <div className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
             {[
+              { label: "Customer Name", value: `${customer.first_name} ${customer.last_name}` },
+              { label: "Contact Person", value: customer.contact_person || `${customer.first_name} ${customer.last_name}` },
+              { label: "Email", value: customer.email },
+              { label: "Phone", value: customer.phone },
               { label: "Account #", value: customer.account_number },
               { label: "Customer Since", value: formatDate(customer.created_at) },
-              { label: "System Type", value: customer.system_type.charAt(0).toUpperCase() + customer.system_type.slice(1) },
-              { label: "Region", value: customer.region },
+              { label: "Billing Address", value: `${customer.address}, ${customer.city}, ${customer.state} ${customer.zip}` },
+              { label: "Sites / Properties", value: customer.site_count ?? customer.installations_count },
+              { label: "Installed Systems", value: customer.installations_count },
               { label: "Open Tickets", value: customer.open_tickets || "None" },
+              { label: "Upcoming Maintenance", value: customer.upcoming_maintenance_date ? formatDate(customer.upcoming_maintenance_date) : "Not scheduled" },
               { label: "Active Warranties", value: customer.active_warranties },
-              { label: "Installations", value: customer.installations_count },
-              { label: "Address", value: `${customer.city}, ${customer.state} ${customer.zip}` },
             ].map((item) => (
               <div key={item.label}>
                 <p className="text-xs text-gray-500 dark:text-gray-400">{item.label}</p>
@@ -165,7 +200,40 @@ export default function OverviewTab({ customer }: OverviewTabProps) {
             ))}
           </div>
         </div>
-      </SectionCard>
+        </SectionCard>
+
+        <SectionCard>
+          <div className="p-5">
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Recent Activity</h3>
+            {recentActivity.length === 0 ? (
+              <EmptyState
+                icon={
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                }
+                title="No recent activity"
+                message="Installations, tickets, work orders, warranties, and maintenance visits will appear here."
+              />
+            ) : (
+              <div className="space-y-4">
+                {recentActivity.map((activity) => (
+                  <div key={`${activity.label}-${activity.date}`} className="flex gap-3">
+                    <div className="mt-1 h-2 w-2 rounded-full bg-brand-500" />
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-medium text-gray-800 dark:text-white/90">{activity.label}</p>
+                        <span className="text-xs text-gray-400 dark:text-gray-500">{formatDate(activity.date)}</span>
+                      </div>
+                      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{activity.detail}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </SectionCard>
+      </div>
     </div>
   );
 }

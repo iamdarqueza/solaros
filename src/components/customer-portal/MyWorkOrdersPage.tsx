@@ -5,32 +5,38 @@ import { customerPortalService, type WorkOrder } from "@/services/customerPortal
 
 type FilterTab = "active" | "past";
 
-const STATUS_STEPS = ["new", "scheduled", "in_progress", "completed"] as const;
+const STATUS_STEPS = ["new", "assigned", "scheduled", "in_progress", "requires_follow_up", "completed"] as const;
 
 const STATUS_LABELS: Record<WorkOrder["status"], string> = {
   new: "Request Received",
+  assigned: "Assigned",
   scheduled: "Scheduled",
   in_progress: "In Progress",
+  requires_follow_up: "Follow-up Needed",
   completed: "Completed",
   cancelled: "Cancelled",
 };
 
 const TYPE_LABELS: Record<WorkOrder["type"], string> = {
-  installation: "Installation",
-  repair: "Repair",
-  inspection: "Inspection",
   cleaning: "Cleaning",
-  warranty: "Warranty Work",
-  emergency: "Emergency Repair",
+  inspection: "Inspection",
+  repair: "Repair",
+  replacement: "Replacement",
+  warranty_service: "Covered Component Service",
+  maintenance: "Maintenance",
+  installation_follow_up: "Installation Follow-up",
+  emergency_visit: "Emergency Visit",
 };
 
 const TYPE_ICONS: Record<WorkOrder["type"], string> = {
-  installation: "🏗️",
-  repair: "🔧",
-  inspection: "🔍",
   cleaning: "🧹",
-  warranty: "🛡️",
-  emergency: "🚨",
+  inspection: "🔍",
+  repair: "🔧",
+  replacement: "♻️",
+  warranty_service: "♻️",
+  maintenance: "🗓️",
+  installation_follow_up: "🏗️",
+  emergency_visit: "🚨",
 };
 
 const PRIORITY_MAP: Record<WorkOrder["priority"], { label: string; color: string }> = {
@@ -121,7 +127,9 @@ function WorkOrderCard({ order }: { order: WorkOrder }) {
       <div className={`h-1 w-full ${
         order.status === "in_progress" ? "bg-brand-500" :
         order.status === "scheduled" ? "bg-blue-400" :
+        order.status === "assigned" ? "bg-violet-400" :
         order.status === "new" ? "bg-amber-400" :
+        order.status === "requires_follow_up" ? "bg-rose-400" :
         order.status === "completed" ? "bg-emerald-500" :
         "bg-gray-300"
       }`} />
@@ -223,10 +231,10 @@ export default function MyWorkOrdersPage() {
       setOrders(data);
       setLoading(false);
     });
-  }, [customer?.id]);
+  }, [customer]);
 
   const activeOrders = orders.filter(
-    (o) => o.status === "new" || o.status === "scheduled" || o.status === "in_progress"
+    (o) => o.status === "new" || o.status === "assigned" || o.status === "scheduled" || o.status === "in_progress" || o.status === "requires_follow_up"
   );
   const pastOrders = orders.filter(
     (o) => o.status === "completed" || o.status === "cancelled"
@@ -237,8 +245,8 @@ export default function MyWorkOrdersPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Work Orders</h1>
-        <p className="text-sm text-gray-500 mt-1">Track scheduled visits and view past service records.</p>
+        <h1 className="text-2xl font-bold text-gray-900">Service Visits</h1>
+        <p className="text-sm text-gray-500 mt-1">Track scheduled technician visits and view past service records.</p>
       </div>
 
       {/* Tabs */}
@@ -267,12 +275,12 @@ export default function MyWorkOrdersPage() {
         <div className="text-center py-16">
           <div className="text-5xl mb-3">{filterTab === "active" ? "📋" : "📂"}</div>
           <p className="text-base font-semibold text-gray-700">
-            {filterTab === "active" ? "No active work orders" : "No past work orders"}
+            {filterTab === "active" ? "No active service visits" : "No past service visits"}
           </p>
           <p className="text-sm text-gray-400 mt-1">
             {filterTab === "active"
-              ? "You have no scheduled or in-progress work orders right now."
-              : "Completed work orders will appear here."}
+              ? "You have no scheduled or in-progress visits right now."
+              : "Completed service visits will appear here."}
           </p>
         </div>
       ) : (

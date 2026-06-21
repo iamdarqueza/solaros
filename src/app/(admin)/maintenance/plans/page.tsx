@@ -4,7 +4,7 @@ import PageBreadCrumb from "@/components/common/PageBreadCrumb";
 import RecurringPlans from "@/components/maintenance/RecurringPlans";
 
 export const metadata: Metadata = {
-  title: "Recurring Maintenance Plans | SolarOps",
+  title: "Recurring Maintenance Plans | SolarOS",
   description: "Manage recurring maintenance schedules for solar installations. Generate visits from templates and monitor plan compliance.",
 };
 

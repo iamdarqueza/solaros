@@ -4,7 +4,7 @@ import PageBreadCrumb from "@/components/common/PageBreadCrumb";
 import ClaimsTable from "@/components/warranties/ClaimsTable";
 
 export const metadata: Metadata = {
-  title: "Warranty Claims | SolarOps",
+  title: "Warranty Claims | SolarOS",
   description: "Track and manage all warranty claims filed for solar equipment and labor warranties.",
 };
 

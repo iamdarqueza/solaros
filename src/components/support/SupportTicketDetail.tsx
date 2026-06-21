@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useCallback, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   supportService,
@@ -7,11 +8,13 @@ import {
   TicketStatus,
   SUPPORT_AGENTS,
 } from "@/services/supportService";
+import { workOrderService } from "@/services/workOrderService";
 import {
   StatusBadge,
   PriorityBadge,
   AgentAvatar,
-  getCategoryIcon,
+  getIssueTypeIcon,
+  getIssueTypeLabel,
   getStatusConfig,
 } from "./SupportTicketList";
 
@@ -39,6 +42,34 @@ function getFileIcon(fileType: string): string {
   if (fileType.startsWith("image/")) return "M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z";
   if (fileType === "application/pdf") return "M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z";
   return "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z";
+}
+
+function ContextTile({ label, value, subValue }: { label: string; value: string; subValue: string }) {
+  return (
+    <div className="rounded-xl border border-gray-100 bg-white p-3 dark:border-gray-800 dark:bg-gray-900/40">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">{label}</p>
+      <p className="mt-1 text-sm font-semibold text-gray-800 dark:text-white">{value}</p>
+      <p className="mt-0.5 line-clamp-2 text-xs text-gray-500 dark:text-gray-400">{subValue}</p>
+    </div>
+  );
+}
+
+function DetailRow({ label, value, href }: { label: string; value: string; href?: string }) {
+  const isLinked = value !== "Not linked";
+  return (
+    <div className="flex justify-between gap-2">
+      <dt className="text-xs text-gray-500 dark:text-gray-400">{label}</dt>
+      <dd className={`text-xs font-medium text-right ${isLinked ? "text-brand-600 dark:text-brand-400" : "text-gray-400 dark:text-gray-500"}`}>
+        {href && isLinked ? (
+          <Link href={href} className="hover:text-brand-700 dark:hover:text-brand-300">
+            {value}
+          </Link>
+        ) : (
+          value
+        )}
+      </dd>
+    </div>
+  );
 }
 
 export default function SupportTicketDetail({ ticketId }: SupportTicketDetailProps) {
@@ -112,7 +143,69 @@ export default function SupportTicketDetail({ ticketId }: SupportTicketDetailPro
     }
   };
 
-  const STATUSES: TicketStatus[] = ["open", "in_progress", "waiting_customer", "resolved"];
+  const handleCreateWorkOrder = async () => {
+    if (!ticket) return;
+    const createdOrder = await workOrderService.createOrder({
+      title: `Site visit for ${ticket.ticket_number}`,
+      description: ticket.description,
+      type: ticket.issue_type === "cleaning_request" ? "cleaning" : ticket.related_warranty_id ? "warranty_service" : "repair",
+      priority: ticket.priority === "urgent" ? "urgent" : ticket.priority === "high" ? "high" : "medium",
+      status: "new",
+      source: "support_ticket",
+      source_label: `Support Ticket ${ticket.ticket_number}`,
+      customer_id: ticket.customer_id,
+      customer_name: ticket.customer_name,
+      customer_phone: ticket.customer_phone,
+      site_id: ticket.site_id ?? "site-unlinked",
+      site_address: ticket.site_address,
+      system_name: ticket.solar_system_name,
+      system_id: ticket.solar_system_id ?? "sys-unlinked",
+      related_ticket_id: ticket.id,
+      related_warranty_claim_id: ticket.related_warranty_id,
+      related_maintenance_visit_id: ticket.related_maintenance_visit_id,
+      technician_id: null,
+      technician_name: null,
+      scheduled_date: null,
+      scheduled_time: null,
+      started_at: null,
+      completed_at: null,
+      estimated_duration: ticket.priority === "urgent" ? 4 : 2,
+      actual_duration: null,
+      parts_needed: [],
+      photos: [],
+      service_report: null,
+      maintenance_record_id: ticket.related_maintenance_visit_id,
+      warranty_claim_id: ticket.related_warranty_id,
+      tags: ["support-ticket", ticket.issue_type],
+    });
+    const updated = await supportService.updateTicket(ticket.id, {
+      related_work_order_id: createdOrder.id,
+      status: ticket.status === "open" ? "in_progress" : ticket.status,
+    });
+    setTicket(updated);
+  };
+
+  const handleLinkWorkOrder = async () => {
+    if (!ticket) return;
+    const orders = await workOrderService.getAllOrders();
+    const linkedOrder =
+      orders.find((order) => order.customer_id === ticket.customer_id && !order.related_ticket_id) ??
+      orders.find((order) => order.customer_id === ticket.customer_id);
+    if (linkedOrder && !linkedOrder.related_ticket_id) {
+      await workOrderService.updateOrder(linkedOrder.id, {
+        related_ticket_id: ticket.id,
+        source: "support_ticket",
+        source_label: `Support Ticket ${ticket.ticket_number}`,
+      });
+    }
+    const updated = await supportService.updateTicket(ticket.id, {
+      related_work_order_id: ticket.related_work_order_id ?? linkedOrder?.id ?? "wo-001",
+      status: ticket.status === "open" ? "in_progress" : ticket.status,
+    });
+    setTicket(updated);
+  };
+
+  const STATUSES: TicketStatus[] = ["open", "in_progress", "waiting_customer", "waiting_technician", "resolved", "closed"];
 
   if (loading) {
     return (
@@ -144,6 +237,7 @@ export default function SupportTicketDetail({ ticketId }: SupportTicketDetailPro
   const allNotes = ticket.notes;
   const publicNotes = allNotes.filter((n) => !n.is_internal);
   const internalNotes = allNotes.filter((n) => n.is_internal);
+  const isTicketLocked = ticket.status === "resolved" || ticket.status === "closed";
 
   return (
     <div className="space-y-6">
@@ -176,8 +270,8 @@ export default function SupportTicketDetail({ ticketId }: SupportTicketDetailPro
                 <StatusBadge status={ticket.status} />
                 <PriorityBadge priority={ticket.priority} />
                 <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-                  {getCategoryIcon(ticket.category)}
-                  <span className="capitalize">{ticket.category}</span>
+                  {getIssueTypeIcon(ticket.issue_type)}
+                  <span>{getIssueTypeLabel(ticket.issue_type)}</span>
                 </div>
               </div>
             </div>
@@ -185,6 +279,16 @@ export default function SupportTicketDetail({ ticketId }: SupportTicketDetailPro
             <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-4 leading-snug">
               {ticket.subject}
             </h1>
+
+            <div className="mb-4 rounded-xl border border-brand-100 bg-brand-50 px-4 py-3 text-sm text-brand-700 dark:border-brand-500/20 dark:bg-brand-500/10 dark:text-brand-300">
+              Support tickets are customer issues, questions, requests, or communication. If this needs a site visit, link it to a technician work order.
+            </div>
+
+            <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <ContextTile label="Customer" value={ticket.customer_name} subValue={ticket.customer_email} />
+              <ContextTile label="Site / Property" value={ticket.site_name} subValue={ticket.site_address} />
+              <ContextTile label="Solar System" value={ticket.solar_system_name} subValue={ticket.solar_system_id ?? "System not linked"} />
+            </div>
 
             <div className="rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800 p-4">
               <div className="flex items-center gap-2.5 mb-3">
@@ -215,7 +319,12 @@ export default function SupportTicketDetail({ ticketId }: SupportTicketDetailPro
               ].map((tab) => (
                 <button
                   key={tab.key}
-                  onClick={() => setActiveTab(tab.key as typeof activeTab)}
+                  onClick={() => {
+                    const nextTab = tab.key as typeof activeTab;
+                    setActiveTab(nextTab);
+                    if (nextTab === "conversation") setIsInternalNote(false);
+                    if (nextTab === "internal") setIsInternalNote(true);
+                  }}
                   className={`flex items-center gap-2 px-5 py-3.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
                     activeTab === tab.key
                       ? "border-brand-500 text-brand-600 dark:text-brand-400"
@@ -373,12 +482,15 @@ export default function SupportTicketDetail({ ticketId }: SupportTicketDetailPro
               )}
 
               {/* Reply Box — shown on conversation and internal tabs */}
-              {(activeTab === "conversation" || activeTab === "internal") && ticket.status !== "resolved" && (
+              {(activeTab === "conversation" || activeTab === "internal") && !isTicketLocked && (
                 <div className="mt-4 border-t border-gray-100 dark:border-gray-800 pt-4">
                   <div className="flex items-center gap-3 mb-2">
                     <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
                       <button
-                        onClick={() => setIsInternalNote(false)}
+                        onClick={() => {
+                          setIsInternalNote(false);
+                          setActiveTab("conversation");
+                        }}
                         className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                           !isInternalNote
                             ? "bg-white dark:bg-gray-700 text-gray-800 dark:text-white shadow-sm"
@@ -388,14 +500,17 @@ export default function SupportTicketDetail({ ticketId }: SupportTicketDetailPro
                         Reply to Customer
                       </button>
                       <button
-                        onClick={() => setIsInternalNote(true)}
+                        onClick={() => {
+                          setIsInternalNote(true);
+                          setActiveTab("internal");
+                        }}
                         className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                           isInternalNote
                             ? "bg-amber-500 text-white shadow-sm"
                             : "text-gray-500 dark:text-gray-400"
                         }`}
                       >
-                        🔒 Internal Note
+                        Internal Note
                       </button>
                     </div>
                   </div>
@@ -413,7 +528,7 @@ export default function SupportTicketDetail({ ticketId }: SupportTicketDetailPro
                   />
                   <div className="flex items-center justify-between mt-2">
                     <p className="text-xs text-gray-400 dark:text-gray-500">
-                      {isInternalNote ? "🔒 Only visible to your team" : "Will be sent to customer"}
+                      {isInternalNote ? "Only visible to your team" : "Will be sent to customer"}
                     </p>
                     <button
                       id="support-post-btn"
@@ -441,14 +556,14 @@ export default function SupportTicketDetail({ ticketId }: SupportTicketDetailPro
                 </div>
               )}
 
-              {ticket.status === "resolved" && (
+              {isTicketLocked && (
                 <div className="mt-4 border-t border-gray-100 dark:border-gray-800 pt-4">
                   <div className="rounded-xl bg-emerald-50 dark:bg-emerald-500/5 border border-emerald-200 dark:border-emerald-500/20 p-4 flex items-center gap-3">
                     <svg className="h-5 w-5 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <p className="text-sm text-emerald-700 dark:text-emerald-400 font-medium">
-                      This ticket is resolved. Reopen it to add more replies.
+                      This ticket is {ticket.status === "closed" ? "closed" : "resolved"}. Reopen it to add more replies.
                     </p>
                     <button
                       onClick={() => handleStatusChange("open")}
@@ -507,7 +622,7 @@ export default function SupportTicketDetail({ ticketId }: SupportTicketDetailPro
 
             {/* Quick Actions */}
             <div className="grid grid-cols-2 gap-2">
-              {ticket.status !== "resolved" && (
+              {!isTicketLocked && (
                 <button
                   onClick={() => handleStatusChange("resolved")}
                   className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 px-3 py-2 text-xs font-medium text-white transition-colors"
@@ -518,7 +633,7 @@ export default function SupportTicketDetail({ ticketId }: SupportTicketDetailPro
                   Resolve
                 </button>
               )}
-              {ticket.status !== "in_progress" && ticket.status !== "resolved" && (
+              {ticket.status !== "in_progress" && !isTicketLocked && (
                 <button
                   onClick={() => handleStatusChange("in_progress")}
                   className="flex items-center justify-center gap-1.5 rounded-lg border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-colors"
@@ -529,7 +644,7 @@ export default function SupportTicketDetail({ ticketId }: SupportTicketDetailPro
                   Start Work
                 </button>
               )}
-              {ticket.status !== "waiting_customer" && ticket.status !== "resolved" && (
+              {ticket.status !== "waiting_customer" && !isTicketLocked && (
                 <button
                   onClick={() => handleStatusChange("waiting_customer")}
                   className="flex items-center justify-center gap-1.5 rounded-lg border border-violet-300 dark:border-violet-500/30 bg-violet-50 dark:bg-violet-500/10 px-3 py-2 text-xs font-medium text-violet-700 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-500/20 transition-colors"
@@ -540,7 +655,62 @@ export default function SupportTicketDetail({ ticketId }: SupportTicketDetailPro
                   Wait Customer
                 </button>
               )}
+              {ticket.status !== "waiting_technician" && !isTicketLocked && (
+                <button
+                  onClick={() => handleStatusChange("waiting_technician")}
+                  className="flex items-center justify-center gap-1.5 rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-2 text-xs font-medium text-indigo-700 transition-colors hover:bg-indigo-100 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-400 dark:hover:bg-indigo-500/20"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a4 4 0 00-5-3.87M9 20H4v-2a4 4 0 015-3.87m4-4.13a4 4 0 100-8 4 4 0 000 8z" />
+                  </svg>
+                  Wait Tech
+                </button>
+              )}
+              {ticket.status !== "closed" && (
+                <button
+                  onClick={() => handleStatusChange("closed")}
+                  className="flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  Close
+                </button>
+              )}
             </div>
+          </div>
+
+          {/* Work Order Link */}
+          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-dark p-5">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3">Field Service</h3>
+            {ticket.related_work_order_id ? (
+              <div className="rounded-xl border border-brand-100 bg-brand-50 p-3 dark:border-brand-500/20 dark:bg-brand-500/10">
+                <p className="text-xs text-brand-600 dark:text-brand-400">Related Work Order</p>
+                <p className="mt-1 font-mono text-sm font-semibold text-brand-700 dark:text-brand-300">{ticket.related_work_order_id}</p>
+                <button
+                  onClick={() => router.push(`/work-orders/${ticket.related_work_order_id}`)}
+                  className="mt-3 w-full rounded-lg bg-brand-500 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-brand-600"
+                >
+                  Open Work Order
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Use a work order when this customer issue requires a technician visit.
+                </p>
+                <button
+                  onClick={handleCreateWorkOrder}
+                  className="w-full rounded-lg bg-brand-500 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-brand-600"
+                >
+                  Create Work Order
+                </button>
+                <button
+                  onClick={handleLinkWorkOrder}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-white/5"
+                >
+                  Link Existing Work Order
+                </button>
+                <p className="text-[11px] text-gray-400 dark:text-gray-500">Mock action only. Backend work-order creation is not wired yet.</p>
+              </div>
+            )}
           </div>
 
           {/* Assignment */}
@@ -612,8 +782,10 @@ export default function SupportTicketDetail({ ticketId }: SupportTicketDetailPro
                   {ticket.customer_name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-gray-800 dark:text-white">{ticket.customer_name}</p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500">{ticket.system_name}</p>
+                  <Link href={`/customers/${ticket.customer_id}`} className="text-sm font-semibold text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300">
+                    {ticket.customer_name}
+                  </Link>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">{ticket.solar_system_name}</p>
                 </div>
               </div>
               <div className="space-y-1.5 pt-1">
@@ -659,22 +831,13 @@ export default function SupportTicketDetail({ ticketId }: SupportTicketDetailPro
                   <dd className="text-xs font-medium text-emerald-600 dark:text-emerald-400 text-right">{formatTime(ticket.resolved_at)}</dd>
                 </div>
               )}
-              {ticket.related_work_order_id && (
-                <div className="flex justify-between gap-2">
-                  <dt className="text-xs text-gray-500 dark:text-gray-400">Work Order</dt>
-                  <dd>
-                    <button
-                      onClick={() => router.push(`/work-orders/${ticket.related_work_order_id}`)}
-                      className="text-xs font-medium text-brand-500 hover:text-brand-600 dark:hover:text-brand-400 flex items-center gap-1"
-                    >
-                      View Order
-                      <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                      </svg>
-                    </button>
-                  </dd>
-                </div>
-              )}
+              <DetailRow
+                label="Work Order"
+                value={ticket.related_work_order_id ?? "Not linked"}
+                href={ticket.related_work_order_id ? `/work-orders/${ticket.related_work_order_id}` : undefined}
+              />
+              <DetailRow label="Warranty" value={ticket.related_warranty_id ?? "Not linked"} />
+              <DetailRow label="Maintenance Visit" value={ticket.related_maintenance_visit_id ?? "Not linked"} />
             </dl>
 
             {/* Tags */}

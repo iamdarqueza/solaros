@@ -33,25 +33,33 @@ export function getWarrantyStatusBadge(status: Warranty["status"]) {
 
 export function getClaimStatusBadge(status: WarrantyClaim["status"]) {
   const map = {
-    pending: {
-      label: "Pending",
+    draft: {
+      label: "Draft",
       cls: "bg-gray-100 text-gray-600 dark:bg-gray-700/50 dark:text-gray-400",
+    },
+    submitted: {
+      label: "Submitted",
+      cls: "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400",
+    },
+    under_review: {
+      label: "Under Review",
+      cls: "bg-warning-50 text-warning-700 dark:bg-warning-500/10 dark:text-warning-400",
     },
     approved: {
       label: "Approved",
-      cls: "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400",
-    },
-    in_progress: {
-      label: "In Progress",
-      cls: "bg-warning-50 text-warning-700 dark:bg-warning-500/10 dark:text-warning-400",
-    },
-    resolved: {
-      label: "Resolved",
       cls: "bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-400",
     },
-    denied: {
-      label: "Denied",
+    rejected: {
+      label: "Rejected",
       cls: "bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-400",
+    },
+    replacement_scheduled: {
+      label: "Replacement Scheduled",
+      cls: "bg-purple-50 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400",
+    },
+    completed: {
+      label: "Completed",
+      cls: "bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-400",
     },
   };
   const { label, cls } = map[status];
@@ -75,10 +83,13 @@ export function getClaimPriorityBadge(priority: WarrantyClaim["priority"]) {
 
 export function getWarrantyTypeBadge(type: Warranty["warranty_type"]) {
   const map = {
-    equipment: { label: "Equipment", cls: "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400" },
+    manufacturer: { label: "Manufacturer", cls: "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400" },
     labor: { label: "Labor", cls: "bg-purple-50 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400" },
+    installation: { label: "Installation", cls: "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400" },
     performance: { label: "Performance", cls: "bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-400" },
-    comprehensive: { label: "Comprehensive", cls: "bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-400" },
+    battery: { label: "Battery", cls: "bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-400" },
+    inverter: { label: "Inverter", cls: "bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400" },
+    panel: { label: "Panel", cls: "bg-cyan-50 text-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-400" },
   };
   const { label, cls } = map[type];
   return (

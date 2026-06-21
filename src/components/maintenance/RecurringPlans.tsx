@@ -1,19 +1,18 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   maintenanceService,
   RecurringPlan,
 } from "@/services/maintenanceService";
 import {
   getFrequencyBadge,
+  getServiceTypeBadge,
   formatDate,
   getDaysUntil,
   TechnicianAvatar,
 } from "./MaintenanceUIHelpers";
 
 export default function RecurringPlans() {
-  const router = useRouter();
   const [plans, setPlans] = useState<RecurringPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "active" | "paused" | "overdue">("all");
@@ -50,14 +49,20 @@ export default function RecurringPlans() {
         site_address: plan.site_address,
         system_name: plan.system_name,
         system_id: plan.system_id,
-        scheduled_date: new Date().toISOString().split("T")[0],
+        service_type: plan.service_type,
+        scheduled_date: plan.next_due,
+        scheduled_time: "09:00",
         technician_id: plan.technician_id,
         technician_name: plan.technician_name,
+        assigned_team: plan.assigned_team,
         checklist: plan.checklist_template.map((i) => ({ ...i, done: false })),
         photos: [],
+        notes: `Generated from ${plan.frequency.replace("_", " ")} maintenance plan.`,
         completion_notes: undefined,
+        completion_report: undefined,
         completed_at: undefined,
         recurrence_plan_id: plan.id,
+        work_order_id: undefined,
       });
       setSuccessId(plan.id);
       setTimeout(() => setSuccessId(null), 3000);
@@ -157,7 +162,7 @@ export default function RecurringPlans() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-100 dark:border-gray-800">
-                {["Customer / System", "Site", "Frequency", "Last Done", "Next Due", "Technician", "Status", ""].map(
+                {["Customer / System", "Service Type", "Frequency", "Start Date", "Next Due", "Team / Technician", "Status", ""].map(
                   (col) => (
                     <th
                       key={col}
@@ -207,9 +212,10 @@ export default function RecurringPlans() {
                           </p>
                         </td>
 
-                        {/* Site */}
+                        {/* Service Type */}
                         <td className="px-4 py-3.5">
-                          <p className="text-xs text-gray-500 dark:text-gray-400 max-w-[160px] truncate">
+                          {getServiceTypeBadge(plan.service_type)}
+                          <p className="text-xs text-gray-400 dark:text-gray-500 max-w-[160px] truncate mt-1">
                             {plan.site_address}
                           </p>
                         </td>
@@ -217,12 +223,13 @@ export default function RecurringPlans() {
                         {/* Frequency */}
                         <td className="px-4 py-3.5">{getFrequencyBadge(plan.frequency)}</td>
 
-                        {/* Last Done */}
+                        {/* Start Date */}
                         <td className="px-4 py-3.5">
                           <p className="text-sm text-gray-600 dark:text-gray-400">
-                            {plan.last_completed ? formatDate(plan.last_completed) : (
-                              <span className="text-gray-400 dark:text-gray-600">Never</span>
-                            )}
+                            {formatDate(plan.start_date)}
+                          </p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                            Last: {plan.last_completed ? formatDate(plan.last_completed) : "Never"}
                           </p>
                         </td>
 
@@ -236,19 +243,22 @@ export default function RecurringPlans() {
                           </p>
                         </td>
 
-                        {/* Technician */}
+                        {/* Team / Technician */}
                         <td className="px-4 py-3.5">
                           <div className="flex items-center gap-2">
                             <TechnicianAvatar name={plan.technician_name} />
-                            <span className="text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                              {plan.technician_name}
-                            </span>
+                            <div>
+                              <span className="text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                                {plan.technician_name}
+                              </span>
+                              <p className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">{plan.assigned_team}</p>
+                            </div>
                           </div>
                         </td>
 
                         {/* Status */}
                         <td className="px-4 py-3.5">
-                          {plan.is_active ? (
+                          {plan.status === "active" ? (
                             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
                               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                               Active
@@ -306,7 +316,7 @@ export default function RecurringPlans() {
               Showing {filtered.length} of {plans.length} plans
             </p>
             <p className="text-xs text-gray-400 dark:text-gray-500">
-              Click "Generate Visit" to create a maintenance record from a plan
+              Generate a visit to create a scheduled maintenance visit from a plan
             </p>
           </div>
         )}

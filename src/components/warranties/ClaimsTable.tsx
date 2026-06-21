@@ -11,6 +11,7 @@ export default function ClaimsTable() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [createdWorkOrders, setCreatedWorkOrders] = useState<Record<string, string>>({});
 
   useEffect(() => {
     warrantyService.getAllClaims().then((data) => {
@@ -43,7 +44,13 @@ export default function ClaimsTable() {
     setSearch("");
   };
 
-  const pendingCount = claims.filter((c) => c.status === "pending" || c.status === "in_progress").length;
+  const openCount = claims.filter((c) => c.status !== "completed" && c.status !== "rejected").length;
+  const completedCount = claims.filter((c) => c.status === "completed").length;
+
+  const handleCreateWorkOrder = (claim: WarrantyClaim) => {
+    const mockWorkOrderId = claim.linked_work_order_id ?? `WO-MOCK-${claim.claim_number.replace(/\D/g, "").slice(-4)}`;
+    setCreatedWorkOrders((prev) => ({ ...prev, [claim.id]: mockWorkOrderId }));
+  };
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-gray-dark">
@@ -52,9 +59,14 @@ export default function ClaimsTable() {
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">Warranty Claims</h2>
-            {pendingCount > 0 && (
+            {openCount > 0 && (
               <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-warning-500 px-1.5 text-[10px] font-semibold text-white">
-                {pendingCount} open
+                {openCount} claim open
+              </span>
+            )}
+            {completedCount > 0 && (
+              <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-success-500 px-1.5 text-[10px] font-semibold text-white">
+                {completedCount} completed
               </span>
             )}
           </div>
@@ -93,7 +105,7 @@ export default function ClaimsTable() {
 
           {/* Status filter pills */}
           <div className="flex gap-1.5">
-            {(["all", "pending", "in_progress", "approved", "resolved", "denied"] as const).map((s) => (
+            {(["all", "draft", "submitted", "under_review", "approved", "rejected", "replacement_scheduled", "completed"] as const).map((s) => (
               <button
                 key={s}
                 onClick={() => setStatusFilter(s)}
@@ -103,7 +115,7 @@ export default function ClaimsTable() {
                     : "border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5"
                 }`}
               >
-                {s === "all" ? "All" : s === "in_progress" ? "In Progress" : s.charAt(0).toUpperCase() + s.slice(1)}
+                {s === "all" ? "All" : s.split("_").map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ")}
               </button>
             ))}
           </div>
@@ -124,7 +136,7 @@ export default function ClaimsTable() {
         <table className="w-full">
           <thead className="sticky top-0 bg-white dark:bg-gray-dark z-10">
             <tr className="border-b border-gray-100 dark:border-gray-800">
-              {["Claim #", "Customer / Product", "Priority", "Issue", "Assigned To", "Filed", "Status"].map((col) => (
+              {["Claim #", "Customer / Product", "Priority", "Issue", "Assigned To", "Filed", "Status", "Work Order"].map((col) => (
                 <th
                   key={col}
                   className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 first:pl-5 last:pr-5"
@@ -138,7 +150,7 @@ export default function ClaimsTable() {
             {loading ? (
               Array.from({ length: 4 }).map((_, i) => (
                 <tr key={i} className="animate-pulse">
-                  {Array.from({ length: 7 }).map((_, j) => (
+                  {Array.from({ length: 8 }).map((_, j) => (
                     <td key={j} className="px-4 py-4 first:pl-5 last:pr-5">
                       <div className="h-4 rounded bg-gray-100 dark:bg-gray-800" />
                     </td>
@@ -147,7 +159,7 @@ export default function ClaimsTable() {
               ))
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-16 text-center">
+                <td colSpan={8} className="py-16 text-center">
                   <div className="flex flex-col items-center">
                     <svg className="w-12 h-12 text-gray-300 dark:text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
@@ -162,7 +174,7 @@ export default function ClaimsTable() {
                 <tr
                   key={claim.id}
                   className={`group transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.03] ${
-                    claim.status === "pending" ? "bg-warning-50/30 dark:bg-warning-500/[0.04]" : ""
+                    claim.status !== "completed" && claim.status !== "rejected" ? "bg-warning-50/30 dark:bg-warning-500/[0.04]" : ""
                   }`}
                 >
                   {/* Claim # */}
@@ -206,7 +218,21 @@ export default function ClaimsTable() {
                   </td>
 
                   {/* Status */}
-                  <td className="px-4 py-3.5 pr-5">{getClaimStatusBadge(claim.status)}</td>
+                  <td className="px-4 py-3.5">{getClaimStatusBadge(claim.status)}</td>
+
+                  {/* Work order */}
+                  <td className="px-4 py-3.5 pr-5">
+                    {claim.status === "completed" || claim.status === "rejected" ? (
+                      <span className="text-sm text-gray-400 dark:text-gray-500">{claim.linked_work_order_id ?? "—"}</span>
+                    ) : (
+                      <button
+                        onClick={() => handleCreateWorkOrder(claim)}
+                        className="rounded-lg border border-brand-200 px-3 py-1.5 text-xs font-medium text-brand-600 transition-colors hover:bg-brand-50 dark:border-brand-800 dark:text-brand-400 dark:hover:bg-brand-500/10"
+                      >
+                        {createdWorkOrders[claim.id] || claim.linked_work_order_id || "Create Work Order"}
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))
             )}

@@ -12,6 +12,10 @@ const TYPE_LABELS: Record<CustomerDocument["type"], string> = {
   warranty_doc: "Warranty",
   invoice: "Invoice",
   proposal: "Proposal",
+  manual: "Manual",
+  installation_certificate: "Installation Certificate",
+  service_report: "Service Report",
+  maintenance_report: "Maintenance Report",
   other: "Other",
 };
 
@@ -22,8 +26,22 @@ const TYPE_ICONS: Record<CustomerDocument["type"], string> = {
   warranty_doc: "🛡️",
   invoice: "🧾",
   proposal: "📋",
+  manual: "📘",
+  installation_certificate: "✅",
+  service_report: "🔧",
+  maintenance_report: "🗓️",
   other: "📁",
 };
+
+const LINK_KIND_LABELS = {
+  customer: "Customer",
+  site: "Site",
+  solar_system: "System",
+  equipment: "Equipment",
+  warranty: "Warranty",
+  support_ticket: "Ticket",
+  work_order: "Work order",
+} satisfies Record<NonNullable<CustomerDocument["linked_records"]>[number]["kind"], string>;
 
 function formatFileSize(kb: number): string {
   if (kb < 1024) return `${kb} KB`;
@@ -34,9 +52,11 @@ const FILTER_TABS: { key: DocType; label: string }[] = [
   { key: "all", label: "All" },
   { key: "contract", label: "Contracts" },
   { key: "permit", label: "Permits" },
-  { key: "inspection", label: "Inspection Reports" },
   { key: "warranty_doc", label: "Warranties" },
-  { key: "invoice", label: "Invoices" },
+  { key: "manual", label: "Manuals" },
+  { key: "installation_certificate", label: "Certificates" },
+  { key: "service_report", label: "Service Reports" },
+  { key: "maintenance_report", label: "Maintenance Reports" },
 ];
 
 export default function MyDocumentsPage() {
@@ -52,7 +72,7 @@ export default function MyDocumentsPage() {
       setDocuments(data);
       setLoading(false);
     });
-  }, [customer?.id]);
+  }, [customer]);
 
   const filtered = activeFilter === "all"
     ? documents
@@ -71,7 +91,7 @@ export default function MyDocumentsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">My Documents</h1>
-        <p className="text-sm text-gray-500 mt-1">Download your installation contracts, permits, and reports.</p>
+        <p className="text-sm text-gray-500 mt-1">Download documents linked to your sites, systems, equipment, warranties, tickets, and service visits.</p>
       </div>
 
       {/* Filter tabs */}
@@ -119,6 +139,23 @@ export default function MyDocumentsPage() {
                   <span className="text-gray-200">·</span>
                   <span className="text-xs text-gray-400">{formatFileSize(doc.size_kb)}</span>
                 </div>
+                {doc.linked_records && doc.linked_records.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {doc.linked_records.slice(0, 3).map((link) => (
+                      <span
+                        key={`${doc.id}-${link.kind}-${link.label}`}
+                        className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500"
+                      >
+                        {LINK_KIND_LABELS[link.kind]}: {link.label}
+                      </span>
+                    ))}
+                    {doc.linked_records.length > 3 && (
+                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">
+                        +{doc.linked_records.length - 3} more
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Download button */}
@@ -141,8 +178,8 @@ export default function MyDocumentsPage() {
       {documents.length > 0 && (
         <div className="rounded-xl bg-gray-50 border border-gray-200 p-4">
           <p className="text-xs text-gray-500">
-            <span className="font-semibold">Need a document that isn't listed?</span>{" "}
-            Contact our support team and we'll make sure you have everything you need.
+            <span className="font-semibold">Need a document that isn&apos;t listed?</span>{" "}
+            Contact our support team and we&apos;ll make sure you have everything you need.
           </p>
         </div>
       )}

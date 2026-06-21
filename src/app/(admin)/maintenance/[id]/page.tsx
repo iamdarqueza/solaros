@@ -4,7 +4,7 @@ import PageBreadCrumb from "@/components/common/PageBreadCrumb";
 import MaintenanceDetail from "@/components/maintenance/MaintenanceDetail";
 
 export const metadata: Metadata = {
-  title: "Maintenance Detail | SolarOps",
+  title: "Maintenance Detail | SolarOS",
   description: "View maintenance visit details, complete the checklist, upload site photos, and add completion notes.",
 };
 

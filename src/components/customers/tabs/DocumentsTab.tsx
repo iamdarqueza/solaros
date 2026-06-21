@@ -65,6 +65,42 @@ const DOC_TYPE_META: Record<
       </svg>
     ),
   },
+  manual: {
+    label: "Manual",
+    color: "bg-cyan-50 text-cyan-600 dark:bg-cyan-500/10 dark:text-cyan-400",
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5s3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18s-3.332.477-4.5 1.253" />
+      </svg>
+    ),
+  },
+  installation_certificate: {
+    label: "Certificate",
+    color: "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400",
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  },
+  service_report: {
+    label: "Service Report",
+    color: "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400",
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.42 15.17 17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17 5.877 20.713A2.121 2.121 0 113.01 17.846l5.587-5.587m0 0A3 3 0 1112.83 8.03" />
+      </svg>
+    ),
+  },
+  maintenance_report: {
+    label: "Maintenance Report",
+    color: "bg-teal-50 text-teal-600 dark:bg-teal-500/10 dark:text-teal-400",
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6.75 3v2.25M17.25 3v2.25M3.75 18.75V7.5A2.25 2.25 0 016 5.25h12a2.25 2.25 0 012.25 2.25v11.25M3.75 18.75A2.25 2.25 0 006 21h12a2.25 2.25 0 002.25-2.25M8.25 11.25h7.5" />
+      </svg>
+    ),
+  },
   other: {
     label: "Other",
     color: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
@@ -75,6 +111,16 @@ const DOC_TYPE_META: Record<
     ),
   },
 };
+
+const LINK_KIND_LABELS = {
+  customer: "Customer",
+  site: "Site",
+  solar_system: "System",
+  equipment: "Equipment",
+  warranty: "Warranty",
+  support_ticket: "Ticket",
+  work_order: "Work order",
+} satisfies Record<NonNullable<CustomerDocument["linked_records"]>[number]["kind"], string>;
 
 function formatSize(kb: number): string {
   if (kb >= 1024) return `${(kb / 1024).toFixed(1)} MB`;
@@ -166,6 +212,23 @@ export default function DocumentsTab({ customer }: DocumentsTabProps) {
                   <span className={`mt-2 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${meta.color}`}>
                     {meta.label}
                   </span>
+                  {doc.linked_records && doc.linked_records.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {doc.linked_records.slice(0, 3).map((link) => (
+                        <span
+                          key={`${doc.id}-${link.kind}-${link.label}`}
+                          className="rounded-full border border-gray-200 bg-white px-2 py-0.5 text-[10px] font-medium text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400"
+                        >
+                          {LINK_KIND_LABELS[link.kind]}: {link.label}
+                        </span>
+                      ))}
+                      {doc.linked_records.length > 3 && (
+                        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                          +{doc.linked_records.length - 3} more
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 

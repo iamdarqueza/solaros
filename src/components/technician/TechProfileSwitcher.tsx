@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
-import { useTech } from "@/app/(technician)/layout";
+import { useTech } from "@/components/technician/TechContext";
 import type { TechnicianProfile } from "@/services/technicianPortalService";
 
 export default function TechProfileSwitcher() {

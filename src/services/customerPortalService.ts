@@ -34,6 +34,17 @@ export interface PortalOverview {
   activeWarranties: number;
   nextServiceDate: string | null;
   nextServiceTitle: string | null;
+  recentActivity: PortalServiceHistoryItem[];
+}
+
+export interface PortalServiceHistoryItem {
+  id: string;
+  date: string;
+  type: 'support' | 'work_order' | 'maintenance' | 'warranty';
+  title: string;
+  description: string;
+  statusLabel: string;
+  href?: string;
 }
 
 export interface SupportRequestForm {
@@ -57,17 +68,82 @@ export async function getAllCustomers(): Promise<Customer[]> {
   return customersService.getCustomers();
 }
 
+function formatStatusLabel(status: string): string {
+  return status
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+function buildServiceHistory(
+  tickets: SupportTicket[],
+  maintenance: MaintenanceRecord[],
+  warranties: Warranty[],
+  workOrders: WorkOrder[]
+): PortalServiceHistoryItem[] {
+  const supportItems: PortalServiceHistoryItem[] = tickets.map((ticket) => ({
+    id: `support-${ticket.id}`,
+    date: ticket.resolved_at ?? ticket.updated_at ?? ticket.created_at,
+    type: 'support',
+    title: ticket.subject,
+    description: ticket.status === 'resolved'
+      ? 'Support request resolved.'
+      : 'Support request updated.',
+    statusLabel: formatStatusLabel(ticket.status),
+    href: '/portal/support',
+  }));
+
+  const maintenanceItems: PortalServiceHistoryItem[] = maintenance.map((record) => ({
+    id: `maintenance-${record.id}`,
+    date: record.date,
+    type: 'maintenance',
+    title: record.work_type,
+    description: record.outcome || record.description,
+    statusLabel: record.cost_usd === 0 ? 'No charge' : 'Completed',
+    href: '/portal/maintenance',
+  }));
+
+  const workOrderItems: PortalServiceHistoryItem[] = workOrders.map((order) => ({
+    id: `work-order-${order.id}`,
+    date: order.completed_at ?? order.scheduled_date ?? order.updated_at,
+    type: 'work_order',
+    title: order.title,
+    description: order.service_report?.work_performed || order.description || 'Field service visit updated.',
+    statusLabel: formatStatusLabel(order.status),
+    href: '/portal/work-orders',
+  }));
+
+  const warrantyItems: PortalServiceHistoryItem[] = warranties
+    .filter((warranty) => warranty.status !== 'active' || warranty.claim_count > 0)
+    .map((warranty) => ({
+      id: `warranty-${warranty.id}`,
+      date: warranty.expiry_date,
+      type: 'warranty',
+      title: `${warranty.component} warranty`,
+      description: warranty.claim_count > 0
+        ? `${warranty.claim_count} claim${warranty.claim_count !== 1 ? 's' : ''} on file.`
+        : `Coverage ${warranty.status === 'expired' ? 'expired' : 'is expiring soon'}.`,
+      statusLabel: formatStatusLabel(warranty.status),
+      href: '/portal/warranties',
+    }));
+
+  return [...supportItems, ...maintenanceItems, ...workOrderItems, ...warrantyItems]
+    .filter((item) => item.date)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+}
+
 // ── Core portal queries ────────────────────────────────────────────────────────
 
 export const customerPortalService = {
 
   /** Full overview for the portal dashboard */
   async getOverview(customerId: string): Promise<PortalOverview | null> {
-    const [customer, installations, tickets, warranties, workOrders] = await Promise.all([
+    const [customer, installations, tickets, warranties, maintenance, workOrders] = await Promise.all([
       customersService.getCustomer(customerId),
       customersService.getInstallations(customerId),
       customersService.getSupportTickets(customerId),
       customersService.getWarranties(customerId),
+      customersService.getMaintenanceHistory(customerId),
       workOrderService.getAllOrders(),
     ]);
 
@@ -76,9 +152,12 @@ export const customerPortalService = {
     const openTickets = tickets.filter((t) => t.status === 'open' || t.status === 'in_progress').length;
     const activeWarranties = warranties.filter((w) => w.status === 'active' || w.status === 'expiring_soon').length;
 
-    // Find next scheduled or in-progress work order for this customer
+    // Find next active work order for this customer
     const customerOrders = workOrders
-      .filter((o) => o.customer_id === customerId && (o.status === 'scheduled' || o.status === 'in_progress'))
+      .filter((o) =>
+        o.customer_id === customerId &&
+        (o.status === 'assigned' || o.status === 'scheduled' || o.status === 'in_progress' || o.status === 'requires_follow_up')
+      )
       .sort((a, b) => {
         const da = a.scheduled_date ? new Date(a.scheduled_date).getTime() : Infinity;
         const db = b.scheduled_date ? new Date(b.scheduled_date).getTime() : Infinity;
@@ -86,6 +165,7 @@ export const customerPortalService = {
       });
 
     const nextOrder = customerOrders[0] ?? null;
+    const allCustomerOrders = workOrders.filter((o) => o.customer_id === customerId);
 
     return {
       customer,
@@ -94,6 +174,7 @@ export const customerPortalService = {
       activeWarranties,
       nextServiceDate: nextOrder?.scheduled_date ?? null,
       nextServiceTitle: nextOrder?.title ?? null,
+      recentActivity: buildServiceHistory(tickets, maintenance, warranties, allCustomerOrders).slice(0, 4),
     };
   },
 
@@ -128,6 +209,19 @@ export const customerPortalService = {
     return all.filter((o) => o.customer_id === customerId);
   },
 
+  /** Customer-facing timeline across support, field visits, maintenance, and warranties */
+  async getMyServiceHistory(customerId: string): Promise<PortalServiceHistoryItem[]> {
+    const [tickets, maintenance, warranties, allWorkOrders] = await Promise.all([
+      customersService.getSupportTickets(customerId),
+      customersService.getMaintenanceHistory(customerId),
+      customersService.getWarranties(customerId),
+      workOrderService.getAllOrders(),
+    ]);
+
+    const workOrders = allWorkOrders.filter((o) => o.customer_id === customerId);
+    return buildServiceHistory(tickets, maintenance, warranties, workOrders);
+  },
+
   // ── Actions ──────────────────────────────────────────────────────────────────
 
   /** Submit a support request (creates a new mock ticket) */
@@ -137,6 +231,7 @@ export const customerPortalService = {
     customerName: string
   ): Promise<SupportTicket> {
     await new Promise((r) => setTimeout(r, 600));
+    void customerName;
 
     // Generate a ticket number
     const ticketNum = `TKT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -163,6 +258,8 @@ export const customerPortalService = {
     form: MaintenanceRequestForm
   ): Promise<{ success: boolean; referenceId: string }> {
     await new Promise((r) => setTimeout(r, 700));
+    void customerId;
+    void form;
     return {
       success: true,
       referenceId: `MR-${Date.now().toString().slice(-6)}`,

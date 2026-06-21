@@ -3,7 +3,7 @@ import { Metadata } from "next";
 import CustomerProfile from "@/components/customers/CustomerProfile";
 
 export const metadata: Metadata = {
-  title: "Customer Profile | SolarOps",
+  title: "Customer Profile | SolarOS",
   description: "View customer details, solar installations, warranties, maintenance history, and support tickets.",
 };
 

@@ -7,8 +7,9 @@ import {
   SupportStats,
   TicketStatus,
   TicketPriority,
-  TicketCategory,
+  TicketIssueType,
   SUPPORT_AGENTS,
+  ISSUE_TYPE_OPTIONS,
 } from "@/services/supportService";
 import SupportTicketModal from "./SupportTicketModal";
 
@@ -34,11 +35,23 @@ export function getStatusConfig(status: TicketStatus) {
       bg: "bg-violet-50 dark:bg-violet-500/10 border-violet-200 dark:border-violet-500/20",
       dot: "bg-violet-500",
     },
+    waiting_technician: {
+      label: "Waiting Technician",
+      color: "text-indigo-700 dark:text-indigo-300",
+      bg: "bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-500/20",
+      dot: "bg-indigo-500",
+    },
     resolved: {
       label: "Resolved",
       color: "text-emerald-700 dark:text-emerald-300",
       bg: "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20",
       dot: "bg-emerald-500",
+    },
+    closed: {
+      label: "Closed",
+      color: "text-gray-600 dark:text-gray-300",
+      bg: "bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700",
+      dot: "bg-gray-400",
     },
   };
   return map[status];
@@ -54,18 +67,26 @@ export function getPriorityConfig(priority: TicketPriority) {
   return map[priority];
 }
 
-export function getCategoryIcon(category: TicketCategory): React.ReactNode {
-  const paths: Record<TicketCategory, string> = {
-    technical: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z",
-    billing: "M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z",
-    warranty: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z",
-    installation: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4",
-    general: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z",
-    emergency: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z",
+export function getIssueTypeLabel(issueType: TicketIssueType): string {
+  return ISSUE_TYPE_OPTIONS.find((option) => option.value === issueType)?.label ?? "Other";
+}
+
+export function getIssueTypeIcon(issueType: TicketIssueType): React.ReactNode {
+  const paths: Record<TicketIssueType, string> = {
+    low_production: "M3 17l6-6 4 4 8-8M14 7h7v7",
+    inverter_error: "M13 10V3L4 14h7v7l9-11h-7z",
+    battery_issue: "M21 10h-1V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h13a2 2 0 002-2v-3h1v-4z M7 13h4",
+    panel_damage: "M4 6h16M4 12h16M4 18h16M8 6v12m8-12v12M6 4l12 16",
+    cleaning_request: "M5 3v4M3 5h4m9-2l1.5 4.5L22 9l-4.5 1.5L16 15l-1.5-4.5L10 9l4.5-1.5L16 3zM6 17v4m-2-2h4",
+    warranty_request: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z",
+    billing_question: "M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z",
+    document_request: "M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z",
+    maintenance_request: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z",
+    other: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z",
   };
   return (
     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={paths[category]} />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={paths[issueType]} />
     </svg>
   );
 }
@@ -111,25 +132,26 @@ function formatRelative(dateStr: string): string {
   return `${days}d ago`;
 }
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "short", day: "numeric", year: "numeric",
-  });
-}
-
 // ── Main Component ────────────────────────────────────────────────────────────
 
 type ViewMode = "board" | "list";
 type FilterStatus = "all" | TicketStatus;
+type SupportTicketListProps = {
+  initialStatusFilter?: FilterStatus;
+  initialViewMode?: ViewMode;
+};
 
-export default function SupportTicketList() {
+export default function SupportTicketList({
+  initialStatusFilter = "all",
+  initialViewMode = "list",
+}: SupportTicketListProps = {}) {
   const router = useRouter();
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [stats, setStats] = useState<SupportStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<FilterStatus>("all");
+  const [statusFilter, setStatusFilter] = useState<FilterStatus>(initialStatusFilter);
   const [priorityFilter, setPriorityFilter] = useState<"all" | TicketPriority>("all");
   const [agentFilter, setAgentFilter] = useState("all");
   const [showFilterPanel, setShowFilterPanel] = useState(false);
@@ -164,6 +186,9 @@ export default function SupportTicketList() {
     const matchSearch = !q || (
       t.subject.toLowerCase().includes(q) ||
       t.customer_name.toLowerCase().includes(q) ||
+      t.site_name.toLowerCase().includes(q) ||
+      t.solar_system_name.toLowerCase().includes(q) ||
+      getIssueTypeLabel(t.issue_type).toLowerCase().includes(q) ||
       t.ticket_number.toLowerCase().includes(q) ||
       t.description.toLowerCase().includes(q)
     );
@@ -179,7 +204,7 @@ export default function SupportTicketList() {
     agentFilter !== "all",
   ].filter(Boolean).length;
 
-  const BOARD_STATUSES: TicketStatus[] = ["open", "in_progress", "waiting_customer", "resolved"];
+  const BOARD_STATUSES: TicketStatus[] = ["open", "in_progress", "waiting_customer", "waiting_technician", "resolved", "closed"];
 
   const boardColumns = BOARD_STATUSES.map((status) => ({
     status,
@@ -193,30 +218,28 @@ export default function SupportTicketList() {
 
   const statCards = stats
     ? [
-        { label: "Open", value: stats.open, color: "text-sky-600 dark:text-sky-400", bg: "bg-sky-50 dark:bg-sky-500/10", icon: "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" },
-        { label: "In Progress", value: stats.in_progress, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-500/10", icon: "M13 10V3L4 14h7v7l9-11h-7z" },
-        { label: "Waiting", value: stats.waiting_customer, color: "text-violet-600 dark:text-violet-400", bg: "bg-violet-50 dark:bg-violet-500/10", icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" },
-        { label: "Resolved", value: stats.resolved, color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-500/10", icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" },
+        { label: "Open", status: "open" as TicketStatus, value: stats.open, color: "text-sky-600 dark:text-sky-400", bg: "bg-sky-50 dark:bg-sky-500/10", icon: "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" },
+        { label: "In Progress", status: "in_progress" as TicketStatus, value: stats.in_progress, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-500/10", icon: "M13 10V3L4 14h7v7l9-11h-7z" },
+        { label: "Waiting Customer", status: "waiting_customer" as TicketStatus, value: stats.waiting_customer, color: "text-violet-600 dark:text-violet-400", bg: "bg-violet-50 dark:bg-violet-500/10", icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" },
+        { label: "Waiting Tech", status: "waiting_technician" as TicketStatus, value: stats.waiting_technician, color: "text-indigo-600 dark:text-indigo-400", bg: "bg-indigo-50 dark:bg-indigo-500/10", icon: "M17 20h5v-2a4 4 0 00-5-3.87M9 20H4v-2a4 4 0 015-3.87m4-4.13a4 4 0 100-8 4 4 0 000 8zm6 4a4 4 0 10-2.99-6.66" },
+        { label: "Resolved", status: "resolved" as TicketStatus, value: stats.resolved, color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-500/10", icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" },
+        { label: "Closed", status: "closed" as TicketStatus, value: stats.closed, color: "text-gray-600 dark:text-gray-400", bg: "bg-gray-100 dark:bg-gray-800", icon: "M5 8h14M7 8v10a2 2 0 002 2h6a2 2 0 002-2V8m-9 0V6a2 2 0 012-2h2a2 2 0 012 2v2" },
       ]
     : [];
 
   return (
     <div className="space-y-5">
       {/* Stats Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4">
         {loading
-          ? Array.from({ length: 4 }).map((_, i) => (
+          ? Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="animate-pulse rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-dark p-4 h-20" />
             ))
           : statCards.map((s) => (
               <div
                 key={s.label}
                 className={`rounded-xl border border-gray-100 dark:border-gray-800 ${s.bg} p-4 flex items-center gap-3 cursor-pointer hover:shadow-md transition-shadow`}
-                onClick={() => setStatusFilter(
-                  s.label === "Open" ? "open" :
-                  s.label === "In Progress" ? "in_progress" :
-                  s.label === "Waiting" ? "waiting_customer" : "resolved"
-                )}
+                onClick={() => setStatusFilter(s.status)}
               >
                 <div className="h-10 w-10 rounded-xl bg-white dark:bg-gray-900 flex items-center justify-center shadow-sm flex-shrink-0">
                   <svg className={`h-5 w-5 ${s.color}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -400,7 +423,7 @@ export default function SupportTicketList() {
 
       {/* ── Board View ─────────────────────────────────────────────────────── */}
       {viewMode === "board" && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6 gap-4">
           {boardColumns.map(({ status, tickets: colTickets }) => {
             const cfg = getStatusConfig(status);
             return (
@@ -462,7 +485,7 @@ export default function SupportTicketList() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100 dark:border-gray-800">
-                  {["Ticket", "Subject / Customer", "Category", "Priority", "Assigned To", "Created", "Status", ""].map((col) => (
+                  {["Ticket", "Subject / Context", "Issue Type", "Priority", "Assigned To", "Related", "Status", ""].map((col) => (
                     <th
                       key={col}
                       className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 first:pl-5 last:pr-5"
@@ -515,14 +538,19 @@ export default function SupportTicketList() {
                               <p className="text-sm font-semibold text-gray-800 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors truncate">
                                 {ticket.subject}
                               </p>
-                              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{ticket.customer_name}</p>
+                              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                                {ticket.customer_name} · {ticket.site_name}
+                              </p>
+                              <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5 truncate">
+                                {ticket.solar_system_name}
+                              </p>
                             </div>
                           </div>
                         </td>
                         <td className="px-4 py-3.5">
                           <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
-                            {getCategoryIcon(ticket.category)}
-                            <span className="text-xs capitalize">{ticket.category}</span>
+                            {getIssueTypeIcon(ticket.issue_type)}
+                            <span className="text-xs whitespace-nowrap">{getIssueTypeLabel(ticket.issue_type)}</span>
                           </div>
                         </td>
                         <td className="px-4 py-3.5">
@@ -546,7 +574,26 @@ export default function SupportTicketList() {
                           )}
                         </td>
                         <td className="px-4 py-3.5">
-                          <span className="text-xs text-gray-500 dark:text-gray-400">{formatRelative(ticket.created_at)}</span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {ticket.related_work_order_id && (
+                              <span className="rounded-full bg-brand-50 dark:bg-brand-500/10 px-2 py-0.5 text-[10px] font-medium text-brand-600 dark:text-brand-400">
+                                WO
+                              </span>
+                            )}
+                            {ticket.related_warranty_id && (
+                              <span className="rounded-full bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                                Warranty
+                              </span>
+                            )}
+                            {ticket.related_maintenance_visit_id && (
+                              <span className="rounded-full bg-amber-50 dark:bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                                Maint.
+                              </span>
+                            )}
+                            {!ticket.related_work_order_id && !ticket.related_warranty_id && !ticket.related_maintenance_visit_id && (
+                              <span className="text-xs text-gray-400 dark:text-gray-500">{formatRelative(ticket.created_at)}</span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3.5">
                           <StatusBadge status={ticket.status} />
@@ -601,7 +648,7 @@ function TicketCard({
       <div className="flex items-start justify-between gap-2 mb-2.5">
         <div className="flex items-center gap-1.5">
           <span className={`flex items-center justify-center h-6 w-6 rounded-md flex-shrink-0 ${priorityCfg.bg} ${priorityCfg.color}`}>
-            {getCategoryIcon(ticket.category)}
+            {getIssueTypeIcon(ticket.issue_type)}
           </span>
           <span className="text-[10px] font-mono text-gray-400 dark:text-gray-500">{ticket.ticket_number}</span>
         </div>
@@ -614,7 +661,15 @@ function TicketCard({
       </h3>
 
       {/* Customer */}
-      <p className="text-xs text-gray-500 dark:text-gray-400 truncate mb-3">{ticket.customer_name}</p>
+      <div className="mb-3">
+        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{ticket.customer_name}</p>
+        <p className="text-[11px] text-gray-400 dark:text-gray-500 truncate">{ticket.site_name}</p>
+      </div>
+
+      <div className="mb-3 flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
+        {getIssueTypeIcon(ticket.issue_type)}
+        <span className="truncate">{getIssueTypeLabel(ticket.issue_type)}</span>
+      </div>
 
       {/* Footer */}
       <div className="flex items-center justify-between pt-3 border-t border-gray-50 dark:border-gray-800">

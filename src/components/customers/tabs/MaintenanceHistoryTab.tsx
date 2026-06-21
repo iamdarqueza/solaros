@@ -58,6 +58,10 @@ export default function MaintenanceHistoryTab({ customer }: MaintenanceHistoryTa
 
   return (
     <div className="space-y-5">
+      <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-300">
+        Maintenance records show planned or completed service visits for a linked site/system. Scheduled visits that need field execution should create or link to a technician work order.
+      </div>
+
       {/* Filter row */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -141,6 +145,8 @@ export default function MaintenanceHistoryTab({ customer }: MaintenanceHistoryTa
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                   <span>{record.technician_name}</span>
+                  <span className="text-gray-300 dark:text-gray-600">/</span>
+                  <span>Linked system {record.installation_id}</span>
                 </div>
               </div>
             </SectionCard>

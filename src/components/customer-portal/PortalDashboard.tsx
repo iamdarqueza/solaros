@@ -5,6 +5,7 @@ import { useCustomerPortal } from "@/app/(customer)/layout";
 import {
   customerPortalService,
   type PortalOverview,
+  type PortalServiceHistoryItem,
 } from "@/services/customerPortalService";
 
 function formatDate(dateStr: string | null): string {
@@ -31,6 +32,13 @@ function SystemStatusPill({ status }: { status: string }) {
     </span>
   );
 }
+
+const ACTIVITY_META: Record<PortalServiceHistoryItem["type"], { label: string; icon: string; bg: string; text: string }> = {
+  support: { label: "Support", icon: "🎫", bg: "bg-blue-50", text: "text-blue-700" },
+  work_order: { label: "Service Visit", icon: "🔧", bg: "bg-brand-50", text: "text-brand-700" },
+  maintenance: { label: "Maintenance", icon: "🗓️", bg: "bg-emerald-50", text: "text-emerald-700" },
+  warranty: { label: "Warranty", icon: "🛡️", bg: "bg-amber-50", text: "text-amber-700" },
+};
 
 const QUICK_ACTIONS = [
   {
@@ -59,6 +67,19 @@ const QUICK_ACTIONS = [
     ),
     color: "text-emerald-600",
     bg: "bg-emerald-50",
+  },
+  {
+    href: "/portal/system",
+    label: "My Solar Systems",
+    description: "View system and equipment details",
+    icon: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+          d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+    ),
+    color: "text-blue-600",
+    bg: "bg-blue-50",
   },
   {
     href: "/portal/documents",
@@ -100,7 +121,7 @@ export default function PortalDashboard() {
       setOverview(data);
       setLoading(false);
     });
-  }, [customer?.id]);
+  }, [customer]);
 
   if (loading || !customer) {
     return (
@@ -146,6 +167,9 @@ export default function PortalDashboard() {
           <div className="mt-4 flex items-center gap-2 flex-wrap">
             <div className="rounded-lg bg-white/10 backdrop-blur px-3 py-1.5 text-sm font-medium">
               ☀️ Est. saving <span className="font-bold">${totalMonthlySavings}/mo</span>
+            </div>
+            <div className="rounded-lg bg-white/10 backdrop-blur px-3 py-1.5 text-sm font-medium">
+              🛡️ <span className="font-bold">{overview?.activeWarranties ?? 0}</span> active warranties
             </div>
             {overview?.nextServiceDate && (
               <div className="rounded-lg bg-white/10 backdrop-blur px-3 py-1.5 text-sm font-medium">
@@ -243,6 +267,58 @@ export default function PortalDashboard() {
             </Link>
           ))}
         </div>
+      </div>
+
+      {/* Recent service activity */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-gray-800">Recent Service Activity</h2>
+            <p className="text-xs text-gray-500 mt-0.5">Updates from your support requests, visits, warranties, and reports.</p>
+          </div>
+          <Link
+            href="/portal/service-history"
+            className="rounded-lg bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+          >
+            View all
+          </Link>
+        </div>
+
+        {overview?.recentActivity.length ? (
+          <div className="space-y-3">
+            {overview.recentActivity.map((item) => {
+              const meta = ACTIVITY_META[item.type];
+              return (
+                <Link
+                  href={item.href ?? "/portal/service-history"}
+                  key={item.id}
+                  className="flex items-start gap-3 rounded-xl border border-gray-100 p-3 hover:border-gray-200 hover:bg-gray-50 transition-colors"
+                >
+                  <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full ${meta.bg}`}>
+                    <span className="text-lg">{meta.icon}</span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-semibold text-gray-900">{item.title}</p>
+                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${meta.bg} ${meta.text}`}>
+                        {meta.label}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-xs text-gray-500 line-clamp-2">{item.description}</p>
+                  </div>
+                  <p className="flex-shrink-0 text-xs text-gray-400">
+                    {new Date(item.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                  </p>
+                </Link>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="rounded-xl bg-gray-50 px-4 py-8 text-center">
+            <p className="text-sm font-semibold text-gray-700">No service activity yet</p>
+            <p className="mt-1 text-xs text-gray-500">Support requests and completed visits will appear here.</p>
+          </div>
+        )}
       </div>
 
       {/* System info footer */}

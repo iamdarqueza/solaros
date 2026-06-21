@@ -1,6 +1,12 @@
 "use client";
 import React from "react";
-import { MaintenanceStatus, RecurrenceFrequency, ChecklistItem } from "@/services/maintenanceService";
+import {
+  ChecklistItem,
+  MAINTENANCE_SERVICE_TYPE_LABELS,
+  MaintenanceServiceType,
+  MaintenanceStatus,
+  RecurrenceFrequency,
+} from "@/services/maintenanceService";
 
 // ── Status Badge ──────────────────────────────────────────────────────────────
 
@@ -10,6 +16,11 @@ export function getStatusBadge(status: MaintenanceStatus) {
       label: "Scheduled",
       className:
         "inline-flex items-center gap-1.5 rounded-full bg-blue-50 dark:bg-blue-500/10 px-2.5 py-0.5 text-xs font-medium text-blue-600 dark:text-blue-400",
+    },
+    due_soon: {
+      label: "Due Soon",
+      className:
+        "inline-flex items-center gap-1.5 rounded-full bg-orange-50 dark:bg-orange-500/10 px-2.5 py-0.5 text-xs font-medium text-orange-600 dark:text-orange-400",
     },
     in_progress: {
       label: "In Progress",
@@ -35,6 +46,7 @@ export function getStatusBadge(status: MaintenanceStatus) {
 
   const dotColors: Record<MaintenanceStatus, string> = {
     scheduled: "bg-blue-500",
+    due_soon: "bg-orange-500",
     in_progress: "bg-amber-500",
     completed: "bg-emerald-500",
     overdue: "bg-red-500",
@@ -55,11 +67,20 @@ export function getStatusBadge(status: MaintenanceStatus) {
 export function getStatusDotColor(status: MaintenanceStatus): string {
   return {
     scheduled: "bg-blue-500",
+    due_soon: "bg-orange-500",
     in_progress: "bg-amber-500",
     completed: "bg-emerald-500",
     overdue: "bg-red-500",
     cancelled: "bg-gray-400",
   }[status];
+}
+
+export function getServiceTypeBadge(serviceType: MaintenanceServiceType) {
+  return (
+    <span className="inline-flex rounded-lg bg-gray-100 dark:bg-gray-800 px-2.5 py-0.5 text-xs font-medium text-gray-600 dark:text-gray-300">
+      {MAINTENANCE_SERVICE_TYPE_LABELS[serviceType]}
+    </span>
+  );
 }
 
 // ── Frequency Badge ───────────────────────────────────────────────────────────

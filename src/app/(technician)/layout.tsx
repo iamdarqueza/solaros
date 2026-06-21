@@ -1,34 +1,21 @@
 "use client";
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { TECHNICIAN_PROFILES, type TechnicianProfile } from "@/services/technicianPortalService";
+import { TechContext } from "@/components/technician/TechContext";
 import BottomNav from "@/components/technician/BottomNav";
 
-/* ── Tech Context ─────────────────────────────────────────────────────────── */
-
-interface TechContextValue {
-  profile: TechnicianProfile;
-  setProfile: (p: TechnicianProfile) => void;
-  allProfiles: TechnicianProfile[];
-}
-
-export const TechContext = createContext<TechContextValue>({
-  profile: TECHNICIAN_PROFILES[0],
-  setProfile: () => {},
-  allProfiles: TECHNICIAN_PROFILES,
-});
-
-export function useTech() {
-  return useContext(TechContext);
-}
-
 /* ── Layout ───────────────────────────────────────────────────────────────── */
+
+const DEFAULT_DEMO_TECH_ID = "tech-003";
+const DEFAULT_DEMO_TECH =
+  TECHNICIAN_PROFILES.find((profile) => profile.id === DEFAULT_DEMO_TECH_ID) ?? TECHNICIAN_PROFILES[0];
 
 export default function TechnicianLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [profile, setProfileState] = useState<TechnicianProfile>(TECHNICIAN_PROFILES[0]);
+  const [profile, setProfileState] = useState<TechnicianProfile>(DEFAULT_DEMO_TECH);
 
   // Persist active technician in localStorage for demo
   useEffect(() => {

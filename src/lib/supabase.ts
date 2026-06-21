@@ -22,9 +22,11 @@ export interface Organization {
 export interface User {
   id: string
   org_id: string
-  role: 'admin' | 'dispatcher' | 'viewer'
+  role: 'owner' | 'admin' | 'manager' | 'support_agent' | 'technician'
   full_name: string
-  email: string
+  email?: string
+  avatar_url?: string | null
+  phone?: string | null
   created_at: string
 }
 

@@ -15,23 +15,23 @@ Do not paste everything at once.
 ## Recommended Frontend Run Order
 
 ```text
-1. Base Context + Task 6
-2. Base Context + Task 9
-3. Base Context + Task 10
-4. Base Context + Task 8
-5. Base Context + Task 7
-6. Base Context + Task 5
-7. Base Context + Task 11
-8. Base Context + Task 12
-9. Base Context + Task 15
-10. Base Context + Task 16
-11. Base Context + Task 4
-12. Base Context + Task 13
-13. Base Context + Task 14
-14. Base Context + Task 3
-15. Base Context + Task 17
-16. Base Context + Task 18
-17. Base Context + Task 19
+1. Base Context + Task 6 done
+2. Base Context + Task 9 done
+3. Base Context + Task 10 done
+4. Base Context + Task 8 done
+5. Base Context + Task 7 done
+6. Base Context + Task 5 done
+7. Base Context + Task 11 done
+8. Base Context + Task 12 done
+9. Base Context + Task 15 done
+10. Base Context + Task 16 done
+11. Base Context + Task 4 done
+12. Base Context + Task 13 done
+13. Base Context + Task 14 done
+14. Base Context + Task 3 done
+15. Base Context + Task 17 done
+16. Base Context + Task 18 done
+17. Base Context + Task 19 done
 ```
 
 Start with Task 6, 9, and 10 because they clarify:
@@ -92,6 +92,7 @@ After implementing each task, provide:
 - UI behavior added
 - Remaining frontend TODOs
 
+***************************************************************
 ---
 
 # TASK 1 - Review Overall Product Flow
@@ -733,7 +734,7 @@ Frontend-only requirements:
 - Do not implement real dispatch backend.
 
 Goal:
-Technicians module should solve assignment visibility and team management.
+Technicians module should solve assignment visibility and team management. I don't see it in appsiderbar, can you check and add if needed?
 
 ---
 

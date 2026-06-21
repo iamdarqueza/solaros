@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/lib/supabase";
 
 export default function SignUpForm() {
   const [mode, setMode] = useState<"choice" | "email">("choice");
@@ -13,6 +14,9 @@ export default function SignUpForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [emailSent, setEmailSent] = useState(false);
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
+  const [resentMessage, setResentMessage] = useState("");
 
   const { signUpWithEmail, signInWithGoogle } = useAuth();
 
@@ -20,6 +24,13 @@ export default function SignUpForm() {
     const urlParams = new URLSearchParams(window.location.search);
     const urlError = urlParams.get("error");
     const urlMessage = urlParams.get("message");
+    const inviteCode = urlParams.get("invite");
+
+    if (inviteCode) {
+      window.localStorage.setItem("solaros_pending_invite", inviteCode);
+      setInviteCode(inviteCode);
+      setMode("email");
+    }
 
     if (urlError === "email_not_allowed" && urlMessage) {
       setError(decodeURIComponent(urlMessage));
@@ -57,9 +68,11 @@ export default function SignUpForm() {
 
     setLoading(true);
     setError("");
+    setResentMessage("");
 
     const fullName = `${firstName} ${lastName}`.trim();
-    const { data, error } = await signUpWithEmail(email, password, fullName);
+    const pendingInvite = inviteCode || window.localStorage.getItem("solaros_pending_invite");
+    const { data, error } = await signUpWithEmail(email, password, fullName, pendingInvite);
 
     if (error) {
       setError((error as Error).message || "Sign up failed");
@@ -69,12 +82,46 @@ export default function SignUpForm() {
       if (authData?.user && !authData?.session) {
         setEmailSent(true);
       } else if (authData?.user && authData?.session) {
-        // Immediately logged in — AuthWrapper will redirect
+        window.location.href = pendingInvite ? `/company-setup?invite=${encodeURIComponent(pendingInvite)}` : "/";
       } else {
         setEmailSent(true);
       }
       setLoading(false);
     }
+  };
+
+  const handleResendConfirmation = async () => {
+    const targetEmail = email.trim();
+    if (!targetEmail) {
+      setError("Enter the email you used to sign up.");
+      return;
+    }
+
+    setResending(true);
+    setError("");
+    setResentMessage("");
+
+    const callbackUrl = new URL(`${window.location.origin}/auth/callback`);
+    const pendingInvite = inviteCode || window.localStorage.getItem("solaros_pending_invite");
+    if (pendingInvite) {
+      callbackUrl.searchParams.set("invite", pendingInvite);
+    }
+
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: targetEmail,
+      options: {
+        emailRedirectTo: callbackUrl.toString(),
+      },
+    });
+
+    if (error) {
+      setError(error.message || "Could not resend confirmation email.");
+    } else {
+      setResentMessage("Confirmation email resent. Please check your inbox and spam folder.");
+    }
+
+    setResending(false);
   };
 
   if (emailSent) {
@@ -98,7 +145,28 @@ export default function SignUpForm() {
             <p className="text-sm text-gray-400 dark:text-gray-500">
               Click the link in the email to confirm your address and complete sign up.
             </p>
+            <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-left text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-900/10 dark:text-amber-300">
+              This confirmation email is sent by Supabase Auth. If it does not arrive after resending, check your Supabase Auth email/SMTP settings.
+            </div>
+            {error && (
+              <div className="mt-4 p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl dark:bg-red-900/10 dark:border-red-800 dark:text-red-400">
+                {error}
+              </div>
+            )}
+            {resentMessage && (
+              <div className="mt-4 p-3 text-sm text-green-600 bg-green-50 border border-green-200 rounded-xl dark:bg-green-900/10 dark:border-green-800 dark:text-green-400">
+                {resentMessage}
+              </div>
+            )}
             <div className="mt-8">
+              <button
+                type="button"
+                onClick={handleResendConfirmation}
+                disabled={resending}
+                className="mb-4 w-full rounded-xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {resending ? "Resending..." : "Resend confirmation email"}
+              </button>
               <Link href="/signin" className="text-sm text-brand-600 hover:text-brand-700 dark:text-brand-400 font-medium">
                 ← Back to Sign In
               </Link>

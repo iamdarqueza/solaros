@@ -6,7 +6,9 @@ import {
   WorkOrderStatus,
   WorkOrderPriority,
   WorkOrderType,
+  WorkOrderSource,
   WO_TECHNICIANS,
+  WORK_ORDER_SOURCE_LABELS,
 } from "@/services/workOrderService";
 
 interface WorkOrderModalProps {
@@ -17,12 +19,14 @@ interface WorkOrderModalProps {
 }
 
 const TYPE_OPTIONS: { value: WorkOrderType; label: string }[] = [
-  { value: "installation", label: "Installation" },
-  { value: "repair", label: "Repair" },
-  { value: "inspection", label: "Inspection" },
   { value: "cleaning", label: "Cleaning" },
-  { value: "warranty", label: "Warranty" },
-  { value: "emergency", label: "Emergency" },
+  { value: "inspection", label: "Inspection" },
+  { value: "repair", label: "Repair" },
+  { value: "replacement", label: "Replacement" },
+  { value: "warranty_service", label: "Covered Component Service" },
+  { value: "maintenance", label: "Maintenance" },
+  { value: "installation_follow_up", label: "Installation Follow-up" },
+  { value: "emergency_visit", label: "Emergency Visit" },
 ];
 
 const PRIORITY_OPTIONS: { value: WorkOrderPriority; label: string; color: string }[] = [
@@ -34,11 +38,17 @@ const PRIORITY_OPTIONS: { value: WorkOrderPriority; label: string; color: string
 
 const STATUS_OPTIONS: { value: WorkOrderStatus; label: string }[] = [
   { value: "new", label: "New" },
+  { value: "assigned", label: "Assigned" },
   { value: "scheduled", label: "Scheduled" },
   { value: "in_progress", label: "In Progress" },
+  { value: "requires_follow_up", label: "Requires Follow-up" },
   { value: "completed", label: "Completed" },
   { value: "cancelled", label: "Cancelled" },
 ];
+
+const SOURCE_OPTIONS: { value: WorkOrderSource; label: string }[] = Object.entries(WORK_ORDER_SOURCE_LABELS).map(
+  ([value, label]) => ({ value: value as WorkOrderSource, label })
+);
 
 // Simple mock customers for the dropdown
 const MOCK_CUSTOMERS = [
@@ -71,6 +81,10 @@ export default function WorkOrderModal({
   const [type, setType] = useState<WorkOrderType>(order?.type ?? "repair");
   const [priority, setPriority] = useState<WorkOrderPriority>(order?.priority ?? "medium");
   const [status, setStatus] = useState<WorkOrderStatus>(order?.status ?? "new");
+  const [source, setSource] = useState<WorkOrderSource>(order?.source ?? "manual_job");
+  const [relatedTicketId, setRelatedTicketId] = useState(order?.related_ticket_id ?? "");
+  const [relatedWarrantyClaimId, setRelatedWarrantyClaimId] = useState(order?.related_warranty_claim_id ?? "");
+  const [relatedMaintenanceVisitId, setRelatedMaintenanceVisitId] = useState(order?.related_maintenance_visit_id ?? "");
   const [customerId, setCustomerId] = useState(order?.customer_id ?? "");
   const [siteAddress, setSiteAddress] = useState(order?.site_address ?? "");
   const [systemName, setSystemName] = useState(order?.system_name ?? "");
@@ -78,6 +92,8 @@ export default function WorkOrderModal({
   const [scheduledDate, setScheduledDate] = useState(order?.scheduled_date ?? "");
   const [scheduledTime, setScheduledTime] = useState(order?.scheduled_time ?? "");
   const [estimatedDuration, setEstimatedDuration] = useState(String(order?.estimated_duration ?? "2"));
+  const [partsNeeded, setPartsNeeded] = useState(order?.parts_needed.join("\n") ?? "");
+  const [technicianNotes, setTechnicianNotes] = useState(order?.technician_notes ?? "");
 
   // Photos (simulated — in real app would upload to storage)
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
@@ -90,6 +106,7 @@ export default function WorkOrderModal({
   const [reportFindings, setReportFindings] = useState(order?.service_report?.findings ?? "");
   const [reportRecommendations, setReportRecommendations] = useState(order?.service_report?.recommendations ?? "");
   const [reportNotes, setReportNotes] = useState(order?.service_report?.technician_notes ?? "");
+  const [customerSignature, setCustomerSignature] = useState(order?.customer_signature ?? order?.service_report?.customer_signature ?? "");
 
   const selectedCustomer = MOCK_CUSTOMERS.find((c) => c.id === customerId);
 
@@ -139,12 +156,17 @@ export default function WorkOrderModal({
       const customer = MOCK_CUSTOMERS.find((c) => c.id === customerId);
 
       const hasReport = reportWorkPerformed.trim() || reportFindings.trim();
+      const normalizedParts = partsNeeded
+        .split(/\n|,/)
+        .map((part) => part.trim())
+        .filter(Boolean);
       const serviceReport = hasReport
         ? {
             work_performed: reportWorkPerformed,
             parts_used: reportPartsUsed,
             findings: reportFindings,
             recommendations: reportRecommendations,
+            customer_signature: customerSignature || undefined,
             technician_notes: reportNotes,
             items: [],
           }
@@ -157,6 +179,17 @@ export default function WorkOrderModal({
           type,
           priority,
           status,
+          source,
+          source_label: source === "support_ticket" && relatedTicketId
+            ? `${WORK_ORDER_SOURCE_LABELS[source]} ${relatedTicketId}`
+            : source === "warranty_claim" && relatedWarrantyClaimId
+            ? `${WORK_ORDER_SOURCE_LABELS[source]} ${relatedWarrantyClaimId}`
+            : source === "maintenance_schedule" && relatedMaintenanceVisitId
+            ? `${WORK_ORDER_SOURCE_LABELS[source]} ${relatedMaintenanceVisitId}`
+            : WORK_ORDER_SOURCE_LABELS[source],
+          related_ticket_id: relatedTicketId || null,
+          related_warranty_claim_id: relatedWarrantyClaimId || null,
+          related_maintenance_visit_id: relatedMaintenanceVisitId || null,
           customer_id: customerId,
           customer_name: customer?.name ?? order.customer_name,
           customer_phone: customer?.phone ?? order.customer_phone,
@@ -167,7 +200,11 @@ export default function WorkOrderModal({
           scheduled_date: scheduledDate || null,
           scheduled_time: scheduledTime || null,
           estimated_duration: Number(estimatedDuration) || 2,
+          parts_needed: normalizedParts,
+          technician_notes: technicianNotes,
+          customer_signature: customerSignature || null,
           service_report: serviceReport,
+          completion_report: serviceReport,
         });
         onUpdated?.(updated);
       } else {
@@ -177,6 +214,17 @@ export default function WorkOrderModal({
           type,
           priority,
           status,
+          source,
+          source_label: source === "support_ticket" && relatedTicketId
+            ? `${WORK_ORDER_SOURCE_LABELS[source]} ${relatedTicketId}`
+            : source === "warranty_claim" && relatedWarrantyClaimId
+            ? `${WORK_ORDER_SOURCE_LABELS[source]} ${relatedWarrantyClaimId}`
+            : source === "maintenance_schedule" && relatedMaintenanceVisitId
+            ? `${WORK_ORDER_SOURCE_LABELS[source]} ${relatedMaintenanceVisitId}`
+            : WORK_ORDER_SOURCE_LABELS[source],
+          related_ticket_id: relatedTicketId || null,
+          related_warranty_claim_id: relatedWarrantyClaimId || null,
+          related_maintenance_visit_id: relatedMaintenanceVisitId || null,
           customer_id: customerId,
           customer_name: customer?.name ?? "",
           customer_phone: customer?.phone ?? "",
@@ -191,8 +239,15 @@ export default function WorkOrderModal({
           completed_at: null,
           estimated_duration: Number(estimatedDuration) || 2,
           actual_duration: null,
+          checklist: [],
+          parts_needed: normalizedParts,
           photos: [],
+          photos_before: [],
+          photos_after: [],
+          technician_notes: technicianNotes,
+          customer_signature: customerSignature || null,
           service_report: serviceReport,
+          completion_report: serviceReport,
           maintenance_record_id: null,
           warranty_claim_id: null,
           tags: [],
@@ -315,6 +370,46 @@ export default function WorkOrderModal({
                 </div>
               </div>
 
+              {/* Source */}
+              <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-800/40">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                  Work Order Source
+                </label>
+                <select
+                  id="wo-source"
+                  value={source}
+                  onChange={(e) => setSource(e.target.value as WorkOrderSource)}
+                  className="w-full h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
+                >
+                  {SOURCE_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <input
+                    type="text"
+                    value={relatedTicketId}
+                    onChange={(e) => setRelatedTicketId(e.target.value)}
+                    placeholder="Related ticket ID"
+                    className="h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
+                  />
+                  <input
+                    type="text"
+                    value={relatedMaintenanceVisitId}
+                    onChange={(e) => setRelatedMaintenanceVisitId(e.target.value)}
+                    placeholder="Maintenance visit ID"
+                    className="h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
+                  />
+                  <input
+                    type="text"
+                    value={relatedWarrantyClaimId}
+                    onChange={(e) => setRelatedWarrantyClaimId(e.target.value)}
+                    placeholder="Warranty claim ID"
+                    className="h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
+                  />
+                </div>
+              </div>
+
               {/* Status (edit only) */}
               {isEdit && (
                 <div>
@@ -400,25 +495,41 @@ export default function WorkOrderModal({
                   type="text"
                   value={systemName}
                   onChange={(e) => setSystemName(e.target.value)}
-                  placeholder="e.g. SunPower 22kW Residential Array"
+                  placeholder="e.g. Sunset Ridge 9.6 kW PV"
                   className="w-full h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
                 />
               </div>
 
               {/* Estimated Duration */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                  Estimated Duration (hours)
-                </label>
-                <input
-                  id="wo-duration"
-                  type="number"
-                  min="0.5"
-                  step="0.5"
-                  value={estimatedDuration}
-                  onChange={(e) => setEstimatedDuration(e.target.value)}
-                  className="w-32 h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
-                />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-[9rem_1fr]">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                    Estimated Hours
+                  </label>
+                  <input
+                    id="wo-duration"
+                    type="number"
+                    min="0.5"
+                    step="0.5"
+                    value={estimatedDuration}
+                    onChange={(e) => setEstimatedDuration(e.target.value)}
+                    className="w-full h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                    Parts Needed
+                  </label>
+                  <input
+                    id="wo-parts"
+                    type="text"
+                    value={partsNeeded}
+                    onChange={(e) => setPartsNeeded(e.target.value)}
+                    placeholder="Replacement inverter, sealant, MC4 connectors"
+                    className="w-full h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
+                  />
+                  <p className="mt-1 text-xs text-gray-400">Separate parts with commas or new lines.</p>
+                </div>
               </div>
             </div>
           )}
@@ -511,6 +622,19 @@ export default function WorkOrderModal({
                   </div>
                 </div>
               )}
+
+              <div className="border-t border-gray-100 dark:border-gray-800 pt-5">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                  Technician Notes
+                </label>
+                <textarea
+                  value={technicianNotes}
+                  onChange={(e) => setTechnicianNotes(e.target.value)}
+                  placeholder="Access notes, safety notes, customer preferences, or office instructions..."
+                  rows={3}
+                  className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 transition resize-none"
+                />
+              </div>
             </div>
           )}
 
@@ -680,6 +804,18 @@ export default function WorkOrderModal({
                   placeholder="Internal notes for the team..."
                   rows={2}
                   className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 transition resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Customer Signature</label>
+                <input
+                  id="wo-customer-signature"
+                  type="text"
+                  value={customerSignature}
+                  onChange={(e) => setCustomerSignature(e.target.value)}
+                  placeholder="Typed signature for mock completion report"
+                  className="w-full h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
                 />
               </div>
             </div>

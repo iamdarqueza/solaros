@@ -27,6 +27,11 @@ function InfoRow({ label, value }: { label: string; value: string | number }) {
   );
 }
 
+function formatDate(date: string): string {
+  if (!date) return "Not on record";
+  return new Date(date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+}
+
 export default function MySystemPage() {
   const { customer } = useCustomerPortal();
   const [installations, setInstallations] = useState<Installation[]>([]);
@@ -39,7 +44,7 @@ export default function MySystemPage() {
       setInstallations(data);
       setLoading(false);
     });
-  }, [customer?.id]);
+  }, [customer]);
 
   if (loading) {
     return (
@@ -64,8 +69,8 @@ export default function MySystemPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">My Solar System</h1>
-        <p className="text-sm text-gray-500 mt-1">Details about your installed solar equipment.</p>
+        <h1 className="text-2xl font-bold text-gray-900">My Solar Systems</h1>
+        <p className="text-sm text-gray-500 mt-1">Details about your installed solar equipment and where it is located.</p>
       </div>
 
       {/* Summary bar */}
@@ -113,10 +118,13 @@ export default function MySystemPage() {
 
             {/* Details list */}
             <div className="rounded-xl border border-gray-100 divide-y divide-gray-100">
+              <InfoRow label="Site Address" value={inst.site_address} />
               <InfoRow label="Solar Panels" value={inst.panel_brand} />
               <InfoRow label="Inverter" value={inst.inverter_brand} />
-              <InfoRow label="Install Date" value={new Date(inst.install_date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })} />
-              <InfoRow label="Last Inspection" value={new Date(inst.last_inspection).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })} />
+              <InfoRow label="Battery Storage" value="Not installed" />
+              <InfoRow label="Status" value={inst.status === "operational" ? "Operating normally" : inst.status.replace("_", " ")} />
+              <InfoRow label="Install Date" value={formatDate(inst.install_date)} />
+              <InfoRow label="Last Inspection" value={formatDate(inst.last_inspection)} />
             </div>
 
             {/* Alert for degraded/offline */}

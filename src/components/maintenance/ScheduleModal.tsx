@@ -7,6 +7,8 @@ import {
   DEFAULT_CHECKLIST_TEMPLATE,
   ChecklistItem,
   RecurrenceFrequency,
+  MaintenanceServiceType,
+  MAINTENANCE_SERVICE_TYPE_LABELS,
 } from "@/services/maintenanceService";
 
 interface Props {
@@ -27,7 +29,7 @@ const CUSTOMERS = [
 ];
 
 const SYSTEMS_BY_SITE: Record<string, string[]> = {
-  "4821 Sunset Ridge Dr, San Diego, CA 92103": ["SunPower 22kW Residential Array"],
+  "4821 Sunset Ridge Dr, San Diego, CA 92103": ["Sunset Ridge 9.6 kW PV"],
   "200 Harbor View Ct, Coronado, CA 92118": ["LG NeON 8kW Secondary Array"],
   "1100 Innovation Way, San Jose, CA 95110": ["First Solar 80kW Commercial Array"],
   "7832 Desert Palm Ave, Scottsdale, AZ 85251": ["Canadian Solar 15kW Residential Array"],
@@ -45,6 +47,28 @@ const FREQ_LABELS: Record<RecurrenceFrequency, string> = {
   annual: "Annual",
 };
 
+const SERVICE_TEAMS = [
+  "Residential Service Team",
+  "Commercial O&M Team",
+  "Storage Service Team",
+  "Coastal Service Team",
+  "Agricultural Service Team",
+  "Desert Region Service Team",
+];
+
+const frequencyMonths: Record<RecurrenceFrequency, number> = {
+  monthly: 1,
+  quarterly: 3,
+  semi_annual: 6,
+  annual: 12,
+};
+
+function nextDueDate(startDate: string, frequency: RecurrenceFrequency): string {
+  const next = new Date(startDate);
+  next.setMonth(next.getMonth() + frequencyMonths[frequency]);
+  return next.toISOString().split("T")[0];
+}
+
 export default function ScheduleModal({ onClose, onCreated, initialDate }: Props) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const [step, setStep] = useState<1 | 2>(1);
@@ -55,8 +79,11 @@ export default function ScheduleModal({ onClose, onCreated, initialDate }: Props
   const [customerId, setCustomerId] = useState("");
   const [site, setSite] = useState("");
   const [system, setSystem] = useState("");
+  const [serviceType, setServiceType] = useState<MaintenanceServiceType>("panel_cleaning");
   const [scheduledDate, setScheduledDate] = useState(initialDate ?? "");
+  const [scheduledTime, setScheduledTime] = useState("09:00");
   const [technicianId, setTechnicianId] = useState("");
+  const [assignedTeam, setAssignedTeam] = useState(SERVICE_TEAMS[0]);
   const [notes, setNotes] = useState("");
   const [isRecurring, setIsRecurring] = useState(false);
   const [frequency, setFrequency] = useState<RecurrenceFrequency>("quarterly");
@@ -100,20 +127,47 @@ export default function ScheduleModal({ onClose, onCreated, initialDate }: Props
     try {
       const techObj = TECHNICIANS.find((t) => t.id === technicianId)!;
       const custObj = CUSTOMERS.find((c) => c.id === customerId)!;
+      const recurrencePlan = isRecurring
+        ? await maintenanceService.createPlan({
+            customer_id: customerId,
+            customer_name: custObj.name,
+            site_address: site,
+            system_name: system,
+            system_id: `sys-${Date.now()}`,
+            service_type: serviceType,
+            frequency,
+            start_date: scheduledDate,
+            last_completed: undefined,
+            next_due: nextDueDate(scheduledDate, frequency),
+            technician_id: technicianId,
+            technician_name: techObj.name,
+            assigned_team: assignedTeam,
+            checklist_template: checklist.map(({ id, label }) => ({ id, label })),
+            status: "active",
+            is_active: true,
+            notes: notes || undefined,
+          })
+        : null;
       const record = await maintenanceService.createRecord({
         customer_id: customerId,
         customer_name: custObj.name,
         site_address: site,
         system_name: system,
         system_id: `sys-${Date.now()}`,
+        service_type: serviceType,
         scheduled_date: scheduledDate,
+        scheduled_time: scheduledTime,
         technician_id: technicianId,
         technician_name: techObj.name,
+        assigned_team: assignedTeam,
         checklist,
         photos: [],
-        completion_notes: notes || undefined,
+        notes: notes || undefined,
+        completion_notes: undefined,
+        completion_report: undefined,
         completed_at: undefined,
-        recurrence_plan_id: undefined,
+        recurrence_plan_id: recurrencePlan?.id,
+        work_order_id: undefined,
       });
       onCreated(record);
       onClose();
@@ -279,7 +333,26 @@ export default function ScheduleModal({ onClose, onCreated, initialDate }: Props
                 </div>
               </div>
 
-              {/* Date & Technician */}
+              {/* Service Type */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                  Service Type
+                </label>
+                <select
+                  id="modal-service-type"
+                  value={serviceType}
+                  onChange={(e) => setServiceType(e.target.value as MaintenanceServiceType)}
+                  className="w-full h-10 px-3 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
+                >
+                  {(Object.entries(MAINTENANCE_SERVICE_TYPE_LABELS) as [MaintenanceServiceType, string][]).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Date, time & Technician */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
@@ -295,6 +368,18 @@ export default function ScheduleModal({ onClose, onCreated, initialDate }: Props
                     }`}
                   />
                   {errors.date && <p className="mt-1 text-xs text-red-500">{errors.date}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                    Time
+                  </label>
+                  <input
+                    id="modal-time"
+                    type="time"
+                    value={scheduledTime}
+                    onChange={(e) => setScheduledTime(e.target.value)}
+                    className="w-full h-10 px-3 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
@@ -316,6 +401,23 @@ export default function ScheduleModal({ onClose, onCreated, initialDate }: Props
                     ))}
                   </select>
                   {errors.technician && <p className="mt-1 text-xs text-red-500">{errors.technician}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                    Assigned Team
+                  </label>
+                  <select
+                    id="modal-team"
+                    value={assignedTeam}
+                    onChange={(e) => setAssignedTeam(e.target.value)}
+                    className="w-full h-10 px-3 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
+                  >
+                    {SERVICE_TEAMS.map((team) => (
+                      <option key={team} value={team}>
+                        {team}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -342,7 +444,7 @@ export default function ScheduleModal({ onClose, onCreated, initialDate }: Props
                       Make this a recurring visit
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      Automatically schedule future visits on a set frequency
+                      Create a maintenance plan rule and link this visit to it
                     </p>
                   </div>
                   <button

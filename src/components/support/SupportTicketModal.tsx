@@ -1,20 +1,18 @@
 "use client";
 import React, { useState } from "react";
-import { supportService, SupportTicket, SUPPORT_AGENTS, TicketCategory, TicketPriority } from "@/services/supportService";
+import {
+  supportService,
+  SupportTicket,
+  SUPPORT_AGENTS,
+  ISSUE_TYPE_OPTIONS,
+  TicketIssueType,
+  TicketPriority,
+} from "@/services/supportService";
 
 interface SupportTicketModalProps {
   onClose: () => void;
   onCreated: (ticket: SupportTicket) => void;
 }
-
-const CATEGORIES: { value: TicketCategory; label: string }[] = [
-  { value: "technical", label: "Technical Issue" },
-  { value: "billing", label: "Billing & Invoice" },
-  { value: "warranty", label: "Warranty Claim" },
-  { value: "installation", label: "Installation / Upgrade" },
-  { value: "general", label: "General Inquiry" },
-  { value: "emergency", label: "Emergency" },
-];
 
 const PRIORITIES: { value: TicketPriority; label: string; description: string }[] = [
   { value: "low", label: "Low", description: "No impact on system operation" },
@@ -30,8 +28,10 @@ export default function SupportTicketModal({ onClose, onCreated }: SupportTicket
     customer_name: "",
     customer_email: "",
     customer_phone: "",
-    system_name: "",
-    category: "general" as TicketCategory,
+    site_name: "",
+    site_address: "",
+    solar_system_name: "",
+    issue_type: "other" as TicketIssueType,
     priority: "medium" as TicketPriority,
     assigned_agent_id: "",
   });
@@ -60,15 +60,22 @@ export default function SupportTicketModal({ onClose, onCreated }: SupportTicket
         description: form.description,
         status: "open",
         priority: form.priority,
-        category: form.category,
         customer_id: `cust-${Date.now()}`,
         customer_name: form.customer_name,
         customer_email: form.customer_email,
         customer_phone: form.customer_phone,
-        system_name: form.system_name || "Unknown System",
+        site_id: null,
+        site_name: form.site_name || "Unknown Site",
+        site_address: form.site_address || "Address not provided",
+        solar_system_id: null,
+        solar_system_name: form.solar_system_name || "Unknown System",
+        system_name: form.solar_system_name || "Unknown System",
         assigned_agent_id: form.assigned_agent_id || null,
         assigned_agent_name: agent?.name ?? null,
+        issue_type: form.issue_type,
         related_work_order_id: null,
+        related_warranty_id: null,
+        related_maintenance_visit_id: null,
         resolved_at: null,
         first_response_at: null,
         tags: [],
@@ -124,17 +131,17 @@ export default function SupportTicketModal({ onClose, onCreated }: SupportTicket
             {errors.subject && <p className="mt-1 text-xs text-red-500">{errors.subject}</p>}
           </div>
 
-          {/* Category + Priority */}
+          {/* Issue Type + Priority */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Category</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Issue Type</label>
               <select
-                id="tkt-category"
-                value={form.category}
-                onChange={(e) => set("category", e.target.value)}
+                id="tkt-issue-type"
+                value={form.issue_type}
+                onChange={(e) => set("issue_type", e.target.value)}
                 className="w-full rounded-lg border border-gray-200 dark:border-gray-700 px-3.5 py-2.5 text-sm bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition"
               >
-                {CATEGORIES.map((c) => (
+                {ISSUE_TYPE_OPTIONS.map((c) => (
                   <option key={c.value} value={c.value}>{c.label}</option>
                 ))}
               </select>
@@ -185,9 +192,9 @@ export default function SupportTicketModal({ onClose, onCreated }: SupportTicket
           {/* Divider */}
           <div className="border-t border-gray-100 dark:border-gray-800" />
 
-          {/* Customer Info */}
+          {/* Customer + Site Info */}
           <div>
-            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Customer Information</h3>
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Customer, Site, and System</h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2 sm:col-span-1">
                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
@@ -229,13 +236,35 @@ export default function SupportTicketModal({ onClose, onCreated }: SupportTicket
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">System / Installation</label>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Site / Property</label>
                 <input
-                  id="tkt-system-name"
+                  id="tkt-site-name"
                   type="text"
-                  value={form.system_name}
-                  onChange={(e) => set("system_name", e.target.value)}
-                  placeholder="e.g. SunPower 22kW Array"
+                  value={form.site_name}
+                  onChange={(e) => set("site_name", e.target.value)}
+                  placeholder="e.g. Home Residence"
+                  className="w-full rounded-lg border border-gray-200 dark:border-gray-700 px-3.5 py-2.5 text-sm bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Site Address</label>
+                <input
+                  id="tkt-site-address"
+                  type="text"
+                  value={form.site_address}
+                  onChange={(e) => set("site_address", e.target.value)}
+                  placeholder="Street, city, state"
+                  className="w-full rounded-lg border border-gray-200 dark:border-gray-700 px-3.5 py-2.5 text-sm bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">Solar System</label>
+                <input
+                  id="tkt-solar-system-name"
+                  type="text"
+                  value={form.solar_system_name}
+                  onChange={(e) => set("solar_system_name", e.target.value)}
+                  placeholder="e.g. Sunset Ridge 9.6 kW PV"
                   className="w-full rounded-lg border border-gray-200 dark:border-gray-700 px-3.5 py-2.5 text-sm bg-white dark:bg-gray-800 text-gray-800 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition"
                 />
               </div>

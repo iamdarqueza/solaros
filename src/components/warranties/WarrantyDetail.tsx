@@ -30,6 +30,7 @@ export default function WarrantyDetail({ warrantyId }: { warrantyId: string }) {
   const [claims, setClaims] = useState<WarrantyClaim[]>([]);
   const [loading, setLoading] = useState(true);
   const [showClaimModal, setShowClaimModal] = useState(false);
+  const [createdWorkOrders, setCreatedWorkOrders] = useState<Record<string, string>>({});
 
   useEffect(() => {
     Promise.all([
@@ -63,6 +64,11 @@ export default function WarrantyDetail({ warrantyId }: { warrantyId: string }) {
     );
   }
 
+  const handleCreateWorkOrder = (claim: WarrantyClaim) => {
+    const mockWorkOrderId = claim.linked_work_order_id ?? `WO-MOCK-${claim.claim_number.replace(/\D/g, "").slice(-4)}`;
+    setCreatedWorkOrders((prev) => ({ ...prev, [claim.id]: mockWorkOrderId }));
+  };
+
   return (
     <div className="space-y-6">
       {/* Back button */}
@@ -91,12 +97,16 @@ export default function WarrantyDetail({ warrantyId }: { warrantyId: string }) {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-start gap-4">
               <div className={`flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl ${
-                warranty.warranty_type === "equipment"
+                warranty.warranty_type === "panel" || warranty.warranty_type === "manufacturer"
                   ? "bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                  : warranty.warranty_type === "inverter"
+                  ? "bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400"
                   : warranty.warranty_type === "labor"
                   ? "bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400"
                   : warranty.warranty_type === "performance"
                   ? "bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400"
+                  : warranty.warranty_type === "installation"
+                  ? "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
                   : "bg-success-50 dark:bg-success-500/10 text-success-600 dark:text-success-400"
               }`}>
                 <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -154,8 +164,10 @@ export default function WarrantyDetail({ warrantyId }: { warrantyId: string }) {
           <div>
             <InfoRow label="Product" value={warranty.product} />
             <InfoRow label="Manufacturer" value={warranty.manufacturer} />
+            <InfoRow label="Supplier" value={warranty.supplier} />
             <InfoRow label="Model Number" value={<span className="font-mono">{warranty.model_number}</span>} />
             <InfoRow label="Serial Number" value={<span className="font-mono">{warranty.serial_number}</span>} />
+            <InfoRow label="Equipment" value={<span className="font-mono">{warranty.equipment_id}</span>} />
             <InfoRow label="Warranty Type" value={getWarrantyTypeBadge(warranty.warranty_type)} />
             <InfoRow label="Coverage" value={<span className="text-xs leading-relaxed">{warranty.coverage_details}</span>} />
           </div>
@@ -175,7 +187,56 @@ export default function WarrantyDetail({ warrantyId }: { warrantyId: string }) {
             <InfoRow label="Status" value={getWarrantyStatusBadge(warranty.status)} />
             <InfoRow label="Time Remaining" value={<ExpirationCountdown daysRemaining={warranty.days_remaining} />} />
             <InfoRow label="Customer" value={warranty.customer_name} />
-            <InfoRow label="Site" value={<span className="text-xs leading-relaxed">{warranty.site_address}</span>} />
+            <InfoRow label="Installation" value={`${warranty.installation_name} (${warranty.installation_id})`} />
+            <InfoRow label="Solar System" value={`${warranty.solar_system_name} (${warranty.solar_system_id})`} />
+            <InfoRow label="Site" value={`${warranty.site_name} (${warranty.site_id})`} />
+            <InfoRow label="Site Address" value={<span className="text-xs leading-relaxed">{warranty.site_address}</span>} />
+          </div>
+        </div>
+      </div>
+
+      {/* Coverage, contacts, and documents */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-dark p-6">
+          <h2 className="text-sm font-semibold text-gray-800 dark:text-white/90 mb-4">Coverage Notes & Exclusions</h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{warranty.coverage_notes}</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {warranty.exclusions.map((exclusion) => (
+              <span key={exclusion} className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                {exclusion}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-dark p-6">
+          <h2 className="text-sm font-semibold text-gray-800 dark:text-white/90 mb-4">Warranty Contacts</h2>
+          <div>
+            <InfoRow label="Manufacturer" value={`${warranty.manufacturer_contact.company} · ${warranty.manufacturer_contact.name}`} />
+            <InfoRow label="Email" value={warranty.manufacturer_contact.email} />
+            <InfoRow label="Phone" value={warranty.manufacturer_contact.phone} />
+            <InfoRow label="Supplier" value={`${warranty.supplier_contact.company} · ${warranty.supplier_contact.name}`} />
+            <InfoRow label="Supplier Email" value={warranty.supplier_contact.email} />
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-dark p-6">
+          <h2 className="text-sm font-semibold text-gray-800 dark:text-white/90 mb-4">Warranty Documents</h2>
+          <div className="space-y-2">
+            {warranty.documents.map((doc) => (
+              <a
+                key={doc.id}
+                href={doc.url}
+                className="flex items-center justify-between rounded-xl border border-gray-100 px-3 py-2 text-sm text-gray-700 transition-colors hover:border-brand-200 hover:bg-brand-50 dark:border-gray-800 dark:text-gray-300 dark:hover:border-brand-800 dark:hover:bg-brand-500/10"
+              >
+                <span className="line-clamp-1">{doc.name}</span>
+                <span className="text-xs text-gray-400 dark:text-gray-500">{formatDate(doc.uploaded_at)}</span>
+              </a>
+            ))}
+          </div>
+          <div className="mt-4 grid grid-cols-1 gap-2 text-xs text-gray-500 dark:text-gray-400">
+            <span>Proof of purchase: {warranty.proof_of_purchase.name}</span>
+            <span>Installation certificate: {warranty.installation_certificate.name}</span>
           </div>
         </div>
       </div>
@@ -242,6 +303,12 @@ export default function WarrantyDetail({ warrantyId }: { warrantyId: string }) {
                         </p>
                       </div>
                     )}
+                    {claim.next_action && (
+                      <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                        <span className="font-semibold">Next action: </span>
+                        {claim.next_action}
+                      </p>
+                    )}
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="text-xs text-gray-400 dark:text-gray-500">Filed {formatDate(claim.submitted_date)}</p>
@@ -250,6 +317,14 @@ export default function WarrantyDetail({ warrantyId }: { warrantyId: string }) {
                     )}
                     {claim.actual_cost !== undefined && claim.actual_cost === 0 && (
                       <p className="text-xs font-medium text-success-600 dark:text-success-400 mt-1">No cost to customer</p>
+                    )}
+                    {claim.status !== "completed" && claim.status !== "rejected" && (
+                      <button
+                        onClick={() => handleCreateWorkOrder(claim)}
+                        className="mt-2 rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-brand-600"
+                      >
+                        {createdWorkOrders[claim.id] ? `Work Order ${createdWorkOrders[claim.id]}` : "Create Work Order"}
+                      </button>
                     )}
                   </div>
                 </div>
@@ -302,13 +377,15 @@ function NewClaimModal({
         product: warranty.product,
         manufacturer: warranty.manufacturer,
         issue_description: description,
-        status: "pending",
+        status: "submitted",
         priority,
         resolved_date: undefined,
         resolution_notes: undefined,
         assigned_to: undefined,
         estimated_cost: undefined,
         actual_cost: undefined,
+        linked_work_order_id: undefined,
+        next_action: "Create a field work order if the claim requires an on-site technician visit.",
       });
       setSubmitted(true);
       setTimeout(() => onSubmit(newClaim), 1500);

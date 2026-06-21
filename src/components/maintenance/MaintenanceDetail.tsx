@@ -11,6 +11,7 @@ import {
   formatDate,
   TechnicianAvatar,
   ChecklistProgress,
+  getServiceTypeBadge,
 } from "./MaintenanceUIHelpers";
 
 interface Props {
@@ -25,6 +26,7 @@ export default function MaintenanceDetail({ id }: Props) {
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [creatingWorkOrder, setCreatingWorkOrder] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
 
@@ -70,6 +72,17 @@ export default function MaintenanceDetail({ id }: Props) {
       setTimeout(() => setSaved(false), 3000);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCreateWorkOrder = async () => {
+    if (!record) return;
+    setCreatingWorkOrder(true);
+    try {
+      const updated = await maintenanceService.createWorkOrderForVisit(record.id);
+      setRecord(updated);
+    } finally {
+      setCreatingWorkOrder(false);
     }
   };
 
@@ -126,6 +139,20 @@ export default function MaintenanceDetail({ id }: Props) {
 
         {record.status !== "completed" && record.status !== "cancelled" && (
           <div className="flex items-center gap-2">
+            {record.work_order_id ? (
+              <span className="h-10 px-4 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-sm font-medium text-emerald-600 dark:text-emerald-400 flex items-center">
+                Work Order {record.work_order_id}
+              </span>
+            ) : (
+              <button
+                id="maint-create-wo-btn"
+                onClick={handleCreateWorkOrder}
+                disabled={creatingWorkOrder}
+                className="h-10 px-4 rounded-lg bg-brand-50 dark:bg-brand-500/10 text-sm font-medium text-brand-600 dark:text-brand-400 hover:bg-brand-100 dark:hover:bg-brand-500/20 disabled:opacity-50 transition-colors"
+              >
+                {creatingWorkOrder ? "Creating..." : "Create Work Order"}
+              </button>
+            )}
             <button
               id="maint-reschedule-btn"
               onClick={() => router.push("/maintenance/schedule")}
@@ -194,7 +221,7 @@ export default function MaintenanceDetail({ id }: Props) {
               </svg>
             ),
             label: "Scheduled",
-            value: formatDate(record.scheduled_date),
+            value: `${formatDate(record.scheduled_date)} at ${record.scheduled_time}`,
             color: "text-amber-500 bg-amber-50 dark:bg-amber-500/10",
           },
           {
@@ -224,6 +251,31 @@ export default function MaintenanceDetail({ id }: Props) {
             </p>
           </div>
         ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-dark p-4">
+          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide font-medium mb-2">Service Type</p>
+          {getServiceTypeBadge(record.service_type)}
+        </div>
+        <div className="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-dark p-4">
+          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide font-medium mb-1">Assigned Team</p>
+          <p className="text-sm font-semibold text-gray-800 dark:text-white">{record.assigned_team}</p>
+        </div>
+        <div className="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-dark p-4">
+          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide font-medium mb-1">Linked Work Order</p>
+          {record.work_order_id ? (
+            <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{record.work_order_id}</p>
+          ) : (
+            <button
+              onClick={handleCreateWorkOrder}
+              disabled={creatingWorkOrder}
+              className="text-sm font-medium text-brand-500 hover:text-brand-600 disabled:opacity-50"
+            >
+              {creatingWorkOrder ? "Creating..." : "Create mock work order"}
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -379,6 +431,12 @@ export default function MaintenanceDetail({ id }: Props) {
                 <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400">
                   ✓ Completed on {formatDate(record.completed_at)}
                 </p>
+              )}
+              {record.completion_report && (
+                <div className="mt-4 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">Completion Report</p>
+                  <p className="mt-1 text-sm text-emerald-700 dark:text-emerald-300">{record.completion_report}</p>
+                </div>
               )}
             </div>
           </div>

@@ -1,13 +1,15 @@
 "use client";
 import React, { useState, useCallback, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   workOrderService,
   WorkOrder,
   WorkOrderStatus,
   WO_TECHNICIANS,
+  WORK_ORDER_TYPE_LABELS,
 } from "@/services/workOrderService";
-import { StatusBadge, PriorityBadge, TechAvatar, getTypeIcon } from "./WorkOrderList";
+import { StatusBadge, PriorityBadge, TechAvatar, getTypeIcon, SourceBadge } from "./WorkOrderList";
 import WorkOrderModal from "./WorkOrderModal";
 
 function formatDate(dateStr: string | null): string {
@@ -24,11 +26,13 @@ function formatDateTime(isoStr: string | null): string {
   });
 }
 
-const STATUS_FLOW: WorkOrderStatus[] = ["new", "scheduled", "in_progress", "completed"];
+const STATUS_FLOW: WorkOrderStatus[] = ["new", "assigned", "scheduled", "in_progress", "requires_follow_up", "completed"];
 const STATUS_LABELS: Record<WorkOrderStatus, string> = {
   new: "New",
+  assigned: "Assigned",
   scheduled: "Scheduled",
   in_progress: "In Progress",
+  requires_follow_up: "Requires Follow-up",
   completed: "Completed",
   cancelled: "Cancelled",
 };
@@ -118,9 +122,12 @@ export default function WorkOrderDetail({ id }: WorkOrderDetailProps) {
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-xs font-mono text-gray-400 dark:text-gray-500">{order.order_number}</span>
                   <span className="text-gray-200 dark:text-gray-700">·</span>
-                  <span className="text-xs text-gray-400 dark:text-gray-500 capitalize">{order.type}</span>
+                  <span className="text-xs text-gray-400 dark:text-gray-500">{WORK_ORDER_TYPE_LABELS[order.type]}</span>
                 </div>
                 <h1 className="text-xl font-bold text-gray-800 dark:text-white leading-snug">{order.title}</h1>
+                <div className="mt-2">
+                  <SourceBadge label={order.source_label} />
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
@@ -239,11 +246,28 @@ export default function WorkOrderDetail({ id }: WorkOrderDetailProps) {
               )}
             </div>
 
+            {/* Origin & Links */}
+            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-dark p-5">
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Origin & Linked Records</h3>
+              <div className="space-y-3">
+                <InfoRow icon="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" label="Work Order Source" value={order.source_label} />
+                {order.related_ticket_id && (
+                  <InfoRow icon="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" label="Related Support Ticket" value={order.related_ticket_id} href={`/support/tickets/${order.related_ticket_id}`} />
+                )}
+                {order.related_maintenance_visit_id && (
+                  <InfoRow icon="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" label="Related Maintenance Visit" value={order.related_maintenance_visit_id} href={`/maintenance/${order.related_maintenance_visit_id}`} />
+                )}
+                {order.related_warranty_claim_id && (
+                  <InfoRow icon="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" label="Related Warranty Claim" value={order.related_warranty_claim_id} href="/warranties/claims" />
+                )}
+              </div>
+            </div>
+
             {/* Customer & Site */}
             <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-dark p-5">
               <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Customer & Site</h3>
               <div className="space-y-3">
-                <InfoRow icon="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" label="Customer" value={order.customer_name} />
+                <InfoRow icon="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" label="Customer" value={order.customer_name} href={`/customers/${order.customer_id}`} />
                 <InfoRow icon="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" label="Phone" value={order.customer_phone} />
                 <InfoRow icon="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z" label="Site Address" value={order.site_address} />
                 <InfoRow icon="M13 10V3L4 14h7v7l9-11h-7z" label="System" value={order.system_name || "—"} />
@@ -262,6 +286,44 @@ export default function WorkOrderDetail({ id }: WorkOrderDetailProps) {
                 {order.completed_at && (
                   <InfoRow icon="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" label="Completed" value={formatDate(order.completed_at)} />
                 )}
+              </div>
+            </div>
+
+            {/* Field Execution Plan */}
+            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-dark p-5">
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Field Execution Plan</h3>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-2">Checklist</p>
+                  <div className="space-y-2">
+                    {order.checklist.map((item) => (
+                      <div key={item.id} className="flex items-start gap-2 rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-800/60">
+                        <span className={`mt-0.5 h-4 w-4 rounded border flex-shrink-0 ${item.done ? "border-emerald-500 bg-emerald-500" : "border-gray-300 dark:border-gray-600"}`} />
+                        <span className="text-xs text-gray-600 dark:text-gray-400">{item.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-2">Parts Needed</p>
+                  {order.parts_needed.length > 0 ? (
+                    <div className="space-y-2">
+                      {order.parts_needed.map((part) => (
+                        <div key={part} className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
+                          {part}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="rounded-lg bg-gray-50 px-3 py-3 text-xs text-gray-400 dark:bg-gray-800/60 dark:text-gray-500">No parts listed for this job.</p>
+                  )}
+                  {order.technician_notes && (
+                    <div className="mt-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-2">Technician Notes</p>
+                      <p className="rounded-lg bg-gray-50 px-3 py-3 text-sm text-gray-600 dark:bg-gray-800/60 dark:text-gray-400">{order.technician_notes}</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -303,6 +365,9 @@ export default function WorkOrderDetail({ id }: WorkOrderDetailProps) {
             <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-dark p-5">
               <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Job Details</h3>
               <div className="space-y-3">
+                <div className="rounded-xl bg-brand-50 p-3 text-xs text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">
+                  Work orders are technician field jobs. They can originate from a support ticket, scheduled maintenance visit, or warranty claim.
+                </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-500 dark:text-gray-400">Est. Duration</span>
                   <span className="text-xs font-semibold text-gray-800 dark:text-white">{order.estimated_duration}h</span>
@@ -316,13 +381,17 @@ export default function WorkOrderDetail({ id }: WorkOrderDetailProps) {
                 {order.maintenance_record_id && (
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-500 dark:text-gray-400">Linked Maintenance</span>
-                    <span className="text-xs text-brand-500 font-medium">{order.maintenance_record_id}</span>
+                    <Link href={`/maintenance/${order.maintenance_record_id}`} className="text-xs text-brand-500 font-medium hover:text-brand-600 dark:hover:text-brand-400">
+                      {order.maintenance_record_id}
+                    </Link>
                   </div>
                 )}
                 {order.warranty_claim_id && (
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-500 dark:text-gray-400">Warranty Claim</span>
-                    <span className="text-xs text-brand-500 font-medium">{order.warranty_claim_id}</span>
+                    <Link href="/warranties/claims" className="text-xs text-brand-500 font-medium hover:text-brand-600 dark:hover:text-brand-400">
+                      {order.warranty_claim_id}
+                    </Link>
                   </div>
                 )}
               </div>
@@ -356,6 +425,18 @@ export default function WorkOrderDetail({ id }: WorkOrderDetailProps) {
                     Start Work
                   </button>
                 )}
+                {order.status === "assigned" && (
+                  <button
+                    onClick={() => handleStatusUpdate("scheduled")}
+                    disabled={updatingStatus}
+                    className="w-full flex items-center gap-2 h-9 px-3 rounded-lg border border-blue-200 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-sm font-medium hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors disabled:opacity-50"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    Schedule Visit
+                  </button>
+                )}
                 {order.status === "in_progress" && (
                   <button
                     onClick={() => handleStatusUpdate("completed")}
@@ -366,6 +447,18 @@ export default function WorkOrderDetail({ id }: WorkOrderDetailProps) {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     Mark Complete
+                  </button>
+                )}
+                {order.status === "requires_follow_up" && (
+                  <button
+                    onClick={() => handleStatusUpdate("scheduled")}
+                    disabled={updatingStatus}
+                    className="w-full flex items-center gap-2 h-9 px-3 rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-medium hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors disabled:opacity-50"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Reschedule Follow-up
                   </button>
                 )}
                 {order.status !== "cancelled" && order.status !== "completed" && (
@@ -423,17 +516,28 @@ export default function WorkOrderDetail({ id }: WorkOrderDetailProps) {
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Upload photos to document the job site</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {order.photos.map((photo) => (
-                <div key={photo.id} className="group relative rounded-xl overflow-hidden border border-gray-100 dark:border-gray-800">
-                  <div className="h-40 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center">
-                    <svg className="h-12 w-12 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <div className="p-3">
-                    <p className="text-xs font-medium text-gray-700 dark:text-gray-300 line-clamp-2">{photo.caption || "No caption"}</p>
-                    <p className="text-[10px] text-gray-400 mt-1">{photo.uploaded_by}</p>
+            <div className="space-y-6">
+              {[
+                { label: "Before Photos", photos: order.photos_before },
+                { label: "After Photos", photos: order.photos_after },
+                { label: "Other Photos", photos: order.photos.filter((photo) => !photo.stage || photo.stage === "general") },
+              ].filter((group) => group.photos.length > 0).map((group) => (
+                <div key={group.label}>
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">{group.label}</p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {group.photos.map((photo) => (
+                      <div key={photo.id} className="group relative rounded-xl overflow-hidden border border-gray-100 dark:border-gray-800">
+                        <div className="h-40 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center">
+                          <svg className="h-12 w-12 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                        <div className="p-3">
+                          <p className="text-xs font-medium text-gray-700 dark:text-gray-300 line-clamp-2">{photo.caption || "No caption"}</p>
+                          <p className="text-[10px] text-gray-400 mt-1">{photo.uploaded_by}</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}
@@ -493,6 +597,9 @@ export default function WorkOrderDetail({ id }: WorkOrderDetailProps) {
               {order.service_report.technician_notes && (
                 <ReportSection label="Technician Notes" value={order.service_report.technician_notes} />
               )}
+              {order.service_report.customer_signature && (
+                <ReportSection label="Customer Signature" value={order.service_report.customer_signature} />
+              )}
             </div>
           )}
         </div>
@@ -510,7 +617,7 @@ export default function WorkOrderDetail({ id }: WorkOrderDetailProps) {
   );
 }
 
-function InfoRow({ icon, label, value }: { icon: string; label: string; value: string }) {
+function InfoRow({ icon, label, value, href }: { icon: string; label: string; value: string; href?: string }) {
   return (
     <div className="flex items-start gap-3">
       <div className="h-7 w-7 rounded-lg bg-gray-50 dark:bg-gray-800 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -520,7 +627,13 @@ function InfoRow({ icon, label, value }: { icon: string; label: string; value: s
       </div>
       <div className="min-w-0">
         <p className="text-xs text-gray-400 dark:text-gray-500">{label}</p>
-        <p className="text-sm text-gray-700 dark:text-gray-300 font-medium mt-0.5">{value}</p>
+        {href ? (
+          <Link href={href} className="block text-sm text-brand-500 dark:text-brand-400 font-medium mt-0.5 hover:text-brand-600 dark:hover:text-brand-300">
+            {value}
+          </Link>
+        ) : (
+          <p className="text-sm text-gray-700 dark:text-gray-300 font-medium mt-0.5">{value}</p>
+        )}
       </div>
     </div>
   );

@@ -9,6 +9,7 @@ import {
   WorkOrderPriority,
   WorkOrderType,
   WO_TECHNICIANS,
+  WORK_ORDER_TYPE_LABELS,
 } from "@/services/workOrderService";
 import WorkOrderModal from "./WorkOrderModal";
 
@@ -18,9 +19,11 @@ export function getStatusConfig(status: WorkOrderStatus) {
   const map: Record<WorkOrderStatus, { label: string; color: string; bg: string; dot: string }> = {
     new: { label: "New", color: "text-sky-700 dark:text-sky-300", bg: "bg-sky-50 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/20", dot: "bg-sky-500" },
     scheduled: { label: "Scheduled", color: "text-blue-700 dark:text-blue-300", bg: "bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/20", dot: "bg-blue-500" },
+    assigned: { label: "Assigned", color: "text-violet-700 dark:text-violet-300", bg: "bg-violet-50 dark:bg-violet-500/10 border-violet-200 dark:border-violet-500/20", dot: "bg-violet-500" },
     in_progress: { label: "In Progress", color: "text-amber-700 dark:text-amber-300", bg: "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20", dot: "bg-amber-500" },
     completed: { label: "Completed", color: "text-emerald-700 dark:text-emerald-300", bg: "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20", dot: "bg-emerald-500" },
     cancelled: { label: "Cancelled", color: "text-gray-500 dark:text-gray-400", bg: "bg-gray-50 dark:bg-gray-800/60 border-gray-200 dark:border-gray-700", dot: "bg-gray-400" },
+    requires_follow_up: { label: "Requires Follow-up", color: "text-rose-700 dark:text-rose-300", bg: "bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20", dot: "bg-rose-500" },
   };
   return map[status];
 }
@@ -37,12 +40,14 @@ export function getPriorityConfig(priority: WorkOrderPriority) {
 
 export function getTypeIcon(type: WorkOrderType): React.ReactNode {
   const icons: Record<WorkOrderType, string> = {
-    installation: "M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4",
+    installation_follow_up: "M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4",
     repair: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z",
     inspection: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4",
     cleaning: "M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01",
-    warranty: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z",
-    emergency: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z",
+    replacement: "M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121M7 7l2.121 2.121M7 7H4m3 0V4",
+    warranty_service: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z",
+    maintenance: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z",
+    emergency_visit: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z",
   };
   return (
     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -83,6 +88,14 @@ export function TechAvatar({ name, size = "sm" }: { name: string; size?: "sm" | 
   );
 }
 
+export function SourceBadge({ label }: { label: string }) {
+  return (
+    <span className="inline-flex max-w-[180px] items-center rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-medium text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+      <span className="truncate">From: {label}</span>
+    </span>
+  );
+}
+
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "—";
   return new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", {
@@ -94,9 +107,10 @@ function formatDate(dateStr: string | null): string {
 
 type ViewMode = "board" | "list";
 type FilterStatus = "all" | WorkOrderStatus;
+type OperationalFilter = "all" | "active" | "scheduled" | "completed" | "urgent" | "unassigned";
 
 interface WorkOrderListProps {
-  initialFilter?: "active" | "completed" | "all";
+  initialFilter?: "active" | "scheduled" | "completed" | "all";
 }
 
 export default function WorkOrderList({ initialFilter = "all" }: WorkOrderListProps) {
@@ -106,6 +120,7 @@ export default function WorkOrderList({ initialFilter = "all" }: WorkOrderListPr
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>("board");
   const [search, setSearch] = useState("");
+  const [operationalFilter, setOperationalFilter] = useState<OperationalFilter>(initialFilter);
   const [statusFilter, setStatusFilter] = useState<FilterStatus>("all");
   const [priorityFilter, setPriorityFilter] = useState<"all" | WorkOrderPriority>("all");
   const [techFilter, setTechFilter] = useState("all");
@@ -120,16 +135,10 @@ export default function WorkOrderList({ initialFilter = "all" }: WorkOrderListPr
       workOrderService.getAllOrders(),
       workOrderService.getStats(),
     ]);
-    let filtered = all;
-    if (initialFilter === "active") {
-      filtered = all.filter((o) => o.status === "new" || o.status === "scheduled" || o.status === "in_progress");
-    } else if (initialFilter === "completed") {
-      filtered = all.filter((o) => o.status === "completed" || o.status === "cancelled");
-    }
-    setOrders(filtered);
+    setOrders(all);
     setStats(s);
     setLoading(false);
-  }, [initialFilter]);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
 
@@ -149,26 +158,37 @@ export default function WorkOrderList({ initialFilter = "all" }: WorkOrderListPr
       o.title.toLowerCase().includes(q) ||
       o.customer_name.toLowerCase().includes(q) ||
       o.order_number.toLowerCase().includes(q) ||
-      o.site_address.toLowerCase().includes(q)
+      o.site_address.toLowerCase().includes(q) ||
+      o.source_label.toLowerCase().includes(q)
     );
+    const matchOperational =
+      operationalFilter === "all" ||
+      (operationalFilter === "active" && !["completed", "cancelled"].includes(o.status)) ||
+      (operationalFilter === "scheduled" && o.status === "scheduled") ||
+      (operationalFilter === "completed" && ["completed", "cancelled"].includes(o.status)) ||
+      (operationalFilter === "urgent" && o.priority === "urgent") ||
+      (operationalFilter === "unassigned" && !o.technician_id);
     const matchStatus = statusFilter === "all" || o.status === statusFilter;
     const matchPriority = priorityFilter === "all" || o.priority === priorityFilter;
-    const matchTech = techFilter === "all" || o.technician_id === techFilter;
-    return matchSearch && matchStatus && matchPriority && matchTech;
+    const matchTech = techFilter === "all" || (techFilter === "unassigned" ? !o.technician_id : o.technician_id === techFilter);
+    return matchSearch && matchOperational && matchStatus && matchPriority && matchTech;
   });
 
   const activeFilterCount = [
     statusFilter !== "all",
     priorityFilter !== "all",
     techFilter !== "all",
+    operationalFilter !== "all",
   ].filter(Boolean).length;
 
   // ── Board Columns
-  const BOARD_STATUSES: WorkOrderStatus[] = initialFilter === "completed"
+  const BOARD_STATUSES: WorkOrderStatus[] = operationalFilter === "completed"
     ? ["completed", "cancelled"]
-    : initialFilter === "active"
-    ? ["new", "scheduled", "in_progress"]
-    : ["new", "scheduled", "in_progress", "completed", "cancelled"];
+    : operationalFilter === "scheduled"
+    ? ["scheduled"]
+    : operationalFilter === "active"
+    ? ["new", "assigned", "scheduled", "in_progress", "requires_follow_up"]
+    : ["new", "assigned", "scheduled", "in_progress", "requires_follow_up", "completed", "cancelled"];
 
   const boardColumns = BOARD_STATUSES.map((status) => ({
     status,
@@ -187,8 +207,10 @@ export default function WorkOrderList({ initialFilter = "all" }: WorkOrderListPr
   const statCards = stats
     ? [
         { label: "New", value: stats.new, color: "text-sky-600 dark:text-sky-400", bg: "bg-sky-50 dark:bg-sky-500/10", icon: "M12 4v16m8-8H4" },
+        { label: "Assigned", value: stats.assigned, color: "text-violet-600 dark:text-violet-400", bg: "bg-violet-50 dark:bg-violet-500/10", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
         { label: "Scheduled", value: stats.scheduled, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-500/10", icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" },
         { label: "In Progress", value: stats.in_progress, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-500/10", icon: "M13 10V3L4 14h7v7l9-11h-7z" },
+        { label: "Follow-up", value: stats.requires_follow_up, color: "text-rose-600 dark:text-rose-400", bg: "bg-rose-50 dark:bg-rose-500/10", icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" },
         { label: "Completed", value: stats.completed, color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-500/10", icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" },
       ]
     : [];
@@ -196,9 +218,9 @@ export default function WorkOrderList({ initialFilter = "all" }: WorkOrderListPr
   return (
     <div className="space-y-5">
       {/* Stats Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4">
         {loading
-          ? Array.from({ length: 4 }).map((_, i) => (
+          ? Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="animate-pulse rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-dark p-4 h-20" />
             ))
           : statCards.map((s) => (
@@ -214,6 +236,30 @@ export default function WorkOrderList({ initialFilter = "all" }: WorkOrderListPr
                 </div>
               </div>
             ))}
+      </div>
+
+      {/* Operational Filters */}
+      <div className="flex flex-wrap gap-2">
+        {[
+          { key: "active" as OperationalFilter, label: "Active", count: orders.filter((o) => !["completed", "cancelled"].includes(o.status)).length },
+          { key: "scheduled" as OperationalFilter, label: "Scheduled", count: orders.filter((o) => o.status === "scheduled").length },
+          { key: "completed" as OperationalFilter, label: "Completed", count: orders.filter((o) => ["completed", "cancelled"].includes(o.status)).length },
+          { key: "urgent" as OperationalFilter, label: "Urgent", count: orders.filter((o) => o.priority === "urgent").length },
+          { key: "unassigned" as OperationalFilter, label: "Unassigned", count: orders.filter((o) => !o.technician_id).length },
+          { key: "all" as OperationalFilter, label: "All", count: orders.length },
+        ].map((filter) => (
+          <button
+            key={filter.key}
+            onClick={() => setOperationalFilter(filter.key)}
+            className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+              operationalFilter === filter.key
+                ? "border-brand-500 bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400"
+                : "border-gray-200 text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-white/5"
+            }`}
+          >
+            {filter.label} <span className="ml-1 text-xs opacity-70">{filter.count}</span>
+          </button>
+        ))}
       </div>
 
       {/* Toolbar */}
@@ -297,7 +343,7 @@ export default function WorkOrderList({ initialFilter = "all" }: WorkOrderListPr
                   <h3 className="text-sm font-semibold text-gray-800 dark:text-white">Filters</h3>
                   {activeFilterCount > 0 && (
                     <button
-                      onClick={() => { setStatusFilter("all"); setPriorityFilter("all"); setTechFilter("all"); }}
+                      onClick={() => { setOperationalFilter("all"); setStatusFilter("all"); setPriorityFilter("all"); setTechFilter("all"); }}
                       className="text-xs text-brand-500 hover:text-brand-600 font-medium"
                     >
                       Clear all
@@ -308,7 +354,7 @@ export default function WorkOrderList({ initialFilter = "all" }: WorkOrderListPr
                 <div>
                   <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Status</label>
                   <div className="mt-2 flex flex-wrap gap-1.5">
-                    {(["all", "new", "scheduled", "in_progress", "completed", "cancelled"] as const).map((s) => (
+                    {(["all", "new", "assigned", "scheduled", "in_progress", "requires_follow_up", "completed", "cancelled"] as const).map((s) => (
                       <button
                         key={s}
                         onClick={() => setStatusFilter(s)}
@@ -318,7 +364,7 @@ export default function WorkOrderList({ initialFilter = "all" }: WorkOrderListPr
                             : "border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5"
                         }`}
                       >
-                        {s === "in_progress" ? "In Progress" : s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
+                        {s === "in_progress" ? "In Progress" : s === "requires_follow_up" ? "Follow-up" : s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
                       </button>
                     ))}
                   </div>
@@ -355,6 +401,16 @@ export default function WorkOrderList({ initialFilter = "all" }: WorkOrderListPr
                       }`}
                     >
                       All
+                    </button>
+                    <button
+                      onClick={() => setTechFilter("unassigned")}
+                      className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
+                        techFilter === "unassigned"
+                          ? "bg-brand-500 text-white"
+                          : "border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5"
+                      }`}
+                    >
+                      Unassigned
                     </button>
                     {WO_TECHNICIANS.map((t) => (
                       <button
@@ -446,7 +502,7 @@ export default function WorkOrderList({ initialFilter = "all" }: WorkOrderListPr
             </div>
             {activeFilterCount > 0 && (
               <button
-                onClick={() => { setStatusFilter("all"); setPriorityFilter("all"); setTechFilter("all"); setSearch(""); }}
+                onClick={() => { setOperationalFilter("all"); setStatusFilter("all"); setPriorityFilter("all"); setTechFilter("all"); setSearch(""); }}
                 className="text-sm text-brand-500 hover:text-brand-600 font-medium"
               >
                 Clear filters
@@ -457,7 +513,7 @@ export default function WorkOrderList({ initialFilter = "all" }: WorkOrderListPr
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100 dark:border-gray-800">
-                  {["Order", "Title / Customer", "Type", "Priority", "Technician", "Scheduled", "Status", ""].map((col) => (
+                  {["Order", "Title / Customer", "Source", "Type", "Priority", "Technician", "Scheduled", "Status", ""].map((col) => (
                     <th
                       key={col}
                       className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 first:pl-5 last:pr-5"
@@ -471,7 +527,7 @@ export default function WorkOrderList({ initialFilter = "all" }: WorkOrderListPr
                 {loading
                   ? Array.from({ length: 6 }).map((_, i) => (
                       <tr key={i} className="animate-pulse">
-                        {Array.from({ length: 8 }).map((_, j) => (
+                        {Array.from({ length: 9 }).map((_, j) => (
                           <td key={j} className="px-4 py-4 first:pl-5 last:pr-5">
                             <div className="h-4 rounded bg-gray-100 dark:bg-gray-800" />
                           </td>
@@ -481,7 +537,7 @@ export default function WorkOrderList({ initialFilter = "all" }: WorkOrderListPr
                   : filteredOrders.length === 0
                   ? (
                       <tr>
-                        <td colSpan={8} className="py-16 text-center">
+                        <td colSpan={9} className="py-16 text-center">
                           <div className="flex flex-col items-center">
                             <svg className="w-12 h-12 text-gray-300 dark:text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -508,7 +564,10 @@ export default function WorkOrderList({ initialFilter = "all" }: WorkOrderListPr
                           <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{order.customer_name}</p>
                         </td>
                         <td className="px-4 py-3.5">
-                          <span className="text-xs text-gray-600 dark:text-gray-400 capitalize">{order.type}</span>
+                          <SourceBadge label={order.source_label} />
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <span className="text-xs text-gray-600 dark:text-gray-400">{WORK_ORDER_TYPE_LABELS[order.type]}</span>
                         </td>
                         <td className="px-4 py-3.5">
                           <PriorityBadge priority={order.priority} />
@@ -573,14 +632,6 @@ function WorkOrderCard({
   onEdit: () => void;
 }) {
   const priorityCfg = getPriorityConfig(order.priority);
-  const typeLabelMap: Record<string, string> = {
-    installation: "Installation",
-    repair: "Repair",
-    inspection: "Inspection",
-    cleaning: "Cleaning",
-    warranty: "Warranty",
-    emergency: "Emergency",
-  };
 
   return (
     <div
@@ -614,10 +665,15 @@ function WorkOrderCard({
       </h3>
 
       {/* Customer + Type */}
-      <div className="flex items-center justify-between gap-2 mb-3">
-        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{order.customer_name}</p>
-        <span className="text-[10px] text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800 rounded px-1.5 py-0.5 flex-shrink-0 capitalize">
-          {typeLabelMap[order.type]}
+      <div className="mb-3 space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{order.customer_name}</p>
+          <span className="text-[10px] text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800 rounded px-1.5 py-0.5 flex-shrink-0">
+            {WORK_ORDER_TYPE_LABELS[order.type]}
+          </span>
+        </div>
+        <span className="inline-flex max-w-full items-center rounded-full border border-gray-100 bg-gray-50 px-2 py-0.5 text-[10px] font-medium text-gray-500 dark:border-gray-800 dark:bg-gray-800 dark:text-gray-400">
+          <span className="truncate">From: {order.source_label}</span>
         </span>
       </div>
 

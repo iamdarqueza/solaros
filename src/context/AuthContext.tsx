@@ -1,7 +1,37 @@
 "use client";
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react'
+import React, { createContext, useContext, useEffect, useState } from 'react'
 import { User as SupabaseUser, Session } from '@supabase/supabase-js'
 import { supabase, User, Organization } from '@/lib/supabase'
+import { fetchAuthWorkspaceAction } from '@/actions/authActions'
+
+type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated' | 'error'
+type OrganizationStatus = 'unknown' | 'ready' | 'needs_setup' | 'error'
+
+interface SupabaseErrorLike {
+  code?: string;
+  message?: string;
+  details?: string;
+  hint?: string;
+}
+
+function logSupabaseError(label: string, error: unknown) {
+  const supabaseError = error as SupabaseErrorLike | null | undefined;
+  const errorObject =
+    error && typeof error === 'object'
+      ? Object.fromEntries(Object.getOwnPropertyNames(error).map((key) => [key, (error as Record<string, unknown>)[key]]))
+      : null;
+
+  console.error(label, {
+    name: error instanceof Error ? error.name : undefined,
+    message: supabaseError?.message,
+    details: supabaseError?.details,
+    hint: supabaseError?.hint,
+    code: supabaseError?.code,
+    stack: error instanceof Error ? error.stack : undefined,
+    errorObject,
+    raw: error,
+  });
+}
 
 interface AuthContextType {
   user: SupabaseUser | null
@@ -9,9 +39,12 @@ interface AuthContextType {
   organization: Organization | null
   session: Session | null
   loading: boolean
+  authStatus: AuthStatus
+  organizationStatus: OrganizationStatus
   needsCompanySetup: boolean
+  authError: string | null
   signInWithEmail: (email: string, password: string) => Promise<{ data: unknown; error: unknown }>
-  signUpWithEmail: (email: string, password: string, fullName: string) => Promise<{ data: unknown; error: unknown }>
+  signUpWithEmail: (email: string, password: string, fullName: string, inviteCode?: string | null) => Promise<{ data: unknown; error: unknown }>
   signInWithGoogle: () => Promise<{ data: unknown; error: unknown }>
   signOut: () => Promise<{ error: unknown }>
   hasRole: (role: string) => boolean
@@ -26,10 +59,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [organization, setOrganization] = useState<Organization | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+  const [authStatus, setAuthStatus] = useState<AuthStatus>('loading')
+  const [organizationStatus, setOrganizationStatus] = useState<OrganizationStatus>('unknown')
+  const [authError, setAuthError] = useState<string | null>(null)
   const [needsCompanySetup, setNeedsCompanySetup] = useState(false)
-  // Guards against fetchUserProfile resetting needsCompanySetup after setup is complete.
-  // TODO: Remove this ref once Supabase backend writes are wired up (user profile will exist on re-fetch).
-  const setupCompletedRef = useRef(false)
+
+  const markNeedsSetup = () => {
+    setUserProfile(null)
+    setOrganization(null)
+    setNeedsCompanySetup(true)
+    setAuthStatus('authenticated')
+    setOrganizationStatus('needs_setup')
+    setAuthError(null)
+  }
+
+  const clearAuthenticatedState = () => {
+    setUserProfile(null)
+    setOrganization(null)
+    setNeedsCompanySetup(false)
+    setAuthStatus('unauthenticated')
+    setOrganizationStatus('unknown')
+    setAuthError(null)
+  }
 
   useEffect(() => {
     // Safety net: force loading done after 8s in case of DB/network stall
@@ -45,19 +96,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null)
 
         if (session?.user) {
+          setAuthStatus('authenticated')
+          setAuthError(null)
+
           if (!session.user.email_confirmed_at) {
             setUserProfile(null)
             setOrganization(null)
             setNeedsCompanySetup(false)
+            setOrganizationStatus('unknown')
             setLoading(false)
             return
           }
 
           await fetchUserProfile(session.user.id)
         } else {
-          setUserProfile(null)
-          setOrganization(null)
-          setNeedsCompanySetup(false)
+          clearAuthenticatedState()
         }
 
         setLoading(false)
@@ -73,80 +126,78 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchUserProfile = async (userId: string) => {
     try {
       console.log('Fetching user profile for:', userId);
-      
-      // Add timeout to prevent hanging requests
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
-      try {
-        // First check if user exists in users table
-        const { data: profile, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', userId)
-          .abortSignal(controller.signal)
-          .single();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
 
-        if (error && error.code === 'PGRST116') {
-          // User doesn't exist in users table
-          clearTimeout(timeoutId);
-          if (setupCompletedRef.current) {
-            // Setup was already completed this session — don't re-trigger the wizard.
-            // TODO: Remove this guard once Supabase backend writes are wired up.
-            console.log('No DB profile found, but setup already completed — skipping wizard.');
-            return;
-          }
-          console.log('User profile not found, needs company setup');
-          setNeedsCompanySetup(true);
-          setUserProfile(null);
-          setOrganization(null);
+      if (!accessToken) {
+        throw new Error('Your session expired. Please sign in again.');
+      }
+
+      const workspaceState = await fetchAuthWorkspaceAction({ accessToken });
+
+      if ('legacyUser' in workspaceState && workspaceState.legacyUser) {
+        const legacyUser = workspaceState.legacyUser;
+
+        if (!legacyUser.org_id) {
+          markNeedsSetup();
           return;
         }
 
-        if (error) {
-          clearTimeout(timeoutId);
-          console.error('Error fetching user profile:', error);
-          throw error;
+        if (workspaceState.organization) {
+          setOrganization(workspaceState.organization as Organization);
         }
 
-        console.log('User profile fetched successfully:', profile);
-
-        // Fetch organization separately
-        if (profile.org_id) {
-          const { data: org, error: orgError } = await supabase
-            .from('organizations')
-            .select('*')
-            .eq('id', profile.org_id)
-            .abortSignal(controller.signal)
-            .single();
-
-          if (!orgError && org) {
-            console.log('Organization fetched successfully:', org);
-            setOrganization(org);
-          } else {
-            console.error('Error fetching organization:', orgError);
-          }
-        }
-
-        clearTimeout(timeoutId);
-        setUserProfile(profile);
+        setUserProfile({
+          id: legacyUser.id,
+          org_id: legacyUser.org_id,
+          role: legacyUser.role as User['role'],
+          full_name: legacyUser.full_name || '',
+          email: legacyUser.email || user?.email,
+          avatar_url: null,
+          phone: null,
+          created_at: legacyUser.created_at,
+        });
         setNeedsCompanySetup(false);
-      } catch (abortError: unknown) {
-        clearTimeout(timeoutId);
-        if (abortError instanceof Error && abortError.name === 'AbortError') {
-          console.error('Request timed out while fetching user profile');
-          throw new Error('Request timed out. Please try again.');
-        }
-        throw abortError;
+        setAuthStatus('authenticated');
+        setOrganizationStatus('ready');
+        setAuthError(null);
+        return;
       }
+
+      if (!workspaceState.profile || !workspaceState.membership) {
+        console.log('No active organization membership found, needs company setup');
+        markNeedsSetup();
+        return;
+      }
+
+      if (workspaceState.organization) {
+        console.log('Organization fetched successfully:', workspaceState.organization);
+        setOrganization(workspaceState.organization as Organization);
+      }
+
+      setUserProfile({
+        id: workspaceState.profile.id,
+        org_id: workspaceState.membership.organization_id,
+        role: workspaceState.membership.role as User['role'],
+        full_name: workspaceState.profile.full_name || '',
+        email: user?.email,
+        avatar_url: workspaceState.profile.avatar_url,
+        phone: workspaceState.profile.phone,
+        created_at: workspaceState.profile.created_at,
+      });
+      setNeedsCompanySetup(false);
+      setAuthStatus('authenticated');
+      setOrganizationStatus('ready');
+      setAuthError(null);
     } catch (error) {
-      console.error('Error in fetchUserProfile:', error);
-      if (!setupCompletedRef.current) {
-        // Only trigger setup wizard on error if setup hasn't been completed yet.
-        setNeedsCompanySetup(true);
-        setUserProfile(null);
-        setOrganization(null);
-      }
+      logSupabaseError('Error in fetchUserProfile:', error);
+      setAuthStatus('error');
+      setOrganizationStatus('error');
+      setAuthError(error instanceof Error ? error.message : 'We could not load your account. Please try again.');
+      setNeedsCompanySetup(false);
+      setUserProfile(null);
+      setOrganization(null);
     }
   }
 
@@ -169,7 +220,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { data, error }
   }
 
-  const signUpWithEmail = async (email: string, password: string, fullName: string) => {
+  const signUpWithEmail = async (email: string, password: string, fullName: string, inviteCode?: string | null) => {
+    const callbackUrl = new URL(`${window.location.origin}/auth/callback`);
+    if (inviteCode) {
+      callbackUrl.searchParams.set("invite", inviteCode);
+    }
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -177,7 +233,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         data: {
           full_name: fullName,
         },
-        emailRedirectTo: `${window.location.origin}/auth/callback`
+        emailRedirectTo: callbackUrl.toString()
       }
     })
     
@@ -201,6 +257,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUserProfile(null)
       setOrganization(null)
       setSession(null)
+      setNeedsCompanySetup(false)
+      setAuthStatus('unauthenticated')
+      setOrganizationStatus('unknown')
+      setAuthError(null)
     }
     return { error }
   }
@@ -210,13 +270,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const completeCompanySetup = async () => {
-    setupCompletedRef.current = true  // Prevent fetchUserProfile from re-triggering the wizard
     setNeedsCompanySetup(false)
-    // TODO: Re-enable fetchUserProfile once Supabase backend writes are wired up.
-    // Currently bypassed — re-fetching would find no user record and reset needsCompanySetup to true.
-    // if (user) {
-    //   await fetchUserProfile(user.id)
-    // }
+    if (user) {
+      await fetchUserProfile(user.id)
+    }
   }
 
   const value = {
@@ -225,7 +282,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     organization,
     session,
     loading,
+    authStatus,
+    organizationStatus,
     needsCompanySetup,
+    authError,
     signInWithEmail,
     signUpWithEmail,
     signInWithGoogle,

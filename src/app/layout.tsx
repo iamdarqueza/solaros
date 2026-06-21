@@ -15,35 +15,27 @@ const outfit = Outfit({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Fewblocs - Fleet Management & Asset Tracking Platform',
-    template: '%s | Fewblocs Fleet Management'
+    default: 'SolarOS - Solar After-Sales & Field Service Platform',
+    template: '%s | SolarOS'
   },
-  description: 'Advanced fleet management platform for trucks, trailers, and asset tracking. Real-time GPS tracking, route optimization, maintenance scheduling, and comprehensive fleet analytics. Similar to Samsara but more affordable.',
+  description: 'SolarOS helps solar companies manage customers, sites, solar systems, warranties, maintenance schedules, support tickets, work orders, technician visits, service reports, documents, and service history.',
   keywords: [
-    'fleet management',
-    'asset tracking',
-    'truck tracking',
-    'trailer tracking',
-    'GPS tracking',
-    'route optimization',
-    'fleet analytics',
-    'vehicle management',
-    'commercial fleet',
-    'logistics management',
-    'maintenance scheduling',
-    'fleet monitoring',
-    'telematics',
-    'fleet software',
-    'transportation management',
-    'delivery tracking',
-    'fleet dashboard',
-    'real-time tracking',
-    'Samsara alternative',
-    'fleet technology'
+    'solar after-sales',
+    'solar warranty management',
+    'solar maintenance software',
+    'solar field service',
+    'solar work orders',
+    'solar customer portal',
+    'solar technician portal',
+    'solar service history',
+    'solar documents',
+    'solar support tickets',
+    'solar operations',
+    'renewable energy service management',
   ],
-  authors: [{ name: 'Fewblocs Team' }],
-  creator: 'Fewblocs',
-  publisher: 'Fewblocs',
+  authors: [{ name: 'SolarOS Team' }],
+  creator: 'SolarOS',
+  publisher: 'SolarOS',
   robots: {
     index: true,
     follow: true,
@@ -58,30 +50,30 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    url: 'https://fewblocs.com',
-    siteName: 'Fewblocs',
-    title: 'Fewblocs - Advanced Fleet Management & Asset Tracking Platform',
-    description: 'Comprehensive fleet management solution for trucks, trailers, and assets. Real-time tracking, route optimization, and maintenance management.',
+    url: 'https://solaros.app',
+    siteName: 'SolarOS',
+    title: 'SolarOS - Solar After-Sales & Field Service Platform',
+    description: 'Manage solar customers, sites, systems, warranties, maintenance, support tickets, work orders, documents, and service history in one frontend workspace.',
     images: [
       {
         url: '/images/og-image.jpg',
         width: 1200,
         height: 630,
-        alt: 'Fewblocs Fleet Management Dashboard',
+        alt: 'SolarOS service operations dashboard',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Fewblocs - Fleet Management & Asset Tracking',
-    description: 'Advanced fleet management platform for trucks, trailers, and asset tracking. Real-time GPS tracking and route optimization.',
+    title: 'SolarOS - Solar After-Sales & Field Service',
+    description: 'Solar customer, warranty, maintenance, support, work order, and technician job management.',
     images: ['/images/twitter-card.jpg'],
-    creator: '@fewblocs',
+    creator: '@solaros',
   },
   alternates: {
-    canonical: 'https://fewblocs.com',
+    canonical: 'https://solaros.app',
   },
-  category: 'Fleet Management Software',
+  category: 'Solar Field Service Software',
   classification: 'Business Software',
   verification: {
     google: 'your-google-verification-code',
@@ -98,27 +90,27 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="canonical" href="https://fewblocs.com" />
+        <link rel="canonical" href="https://solaros.app" />
         <meta name="geo.region" content="US" />
         <meta name="geo.placename" content="United States" />
         <meta name="ICBM" content="39.7392, -104.9903" />
         
-        {/* Structured Data for Fleet Management Business */}
+        {/* Structured Data for SolarOS frontend product positioning */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "SoftwareApplication",
-              "name": "Fewblocs",
+              "name": "SolarOS",
               "applicationCategory": "BusinessApplication",
               "operatingSystem": "Web Browser",
-              "description": "Advanced fleet management and asset tracking platform for trucks, trailers, and commercial vehicles. Features real-time GPS tracking, route optimization, maintenance scheduling, and comprehensive analytics.",
-              "url": "https://fewblocs.com",
+              "description": "Solar after-sales and field service platform for managing customers, sites, solar systems, warranties, maintenance schedules, support tickets, work orders, technician visits, documents, and service history.",
+              "url": "https://solaros.app",
               "manufacturer": {
                 "@type": "Organization",
-                "name": "Fewblocs",
-                "url": "https://fewblocs.com"
+                "name": "SolarOS",
+                "url": "https://solaros.app"
               },
               "offers": {
                 "@type": "Offer",
@@ -134,14 +126,15 @@ export default function RootLayout({
                 "worstRating": "1"
               },
               "featureList": [
-                "Real-time GPS tracking",
-                "Route optimization",
+                "Customer and site records",
+                "Solar installation and equipment tracking",
+                "Warranty and claim management",
                 "Maintenance scheduling",
-                "Fleet analytics",
-                "Asset tracking",
-                "Driver management",
-                "Fuel monitoring",
-                "Compliance reporting"
+                "Support ticket management",
+                "Work order dispatch",
+                "Technician job portal",
+                "Customer self-service portal",
+                "Documents and service history"
               ]
             }),
           }}
@@ -154,19 +147,18 @@ export default function RootLayout({
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "Organization",
-              "name": "Fewblocs",
-              "url": "https://fewblocs.com",
-              "logo": "https://fewblocs.com/images/logo.svg",
-              "description": "Leading fleet management and asset tracking platform for commercial transportation companies.",
+              "name": "SolarOS",
+              "url": "https://solaros.app",
+              "logo": "https://solaros.app/images/logo.svg",
+              "description": "Solar after-sales, warranty, maintenance, and field service management platform.",
               "contactPoint": {
                 "@type": "ContactPoint",
-                "telephone": "+1-800-FEWBLOCS",
                 "contactType": "customer service",
-                "email": "support@fewblocs.com"
+                "email": "support@solaros.app"
               },
               "sameAs": [
-                "https://linkedin.com/company/fewblocs",
-                "https://twitter.com/fewblocs"
+                "https://linkedin.com/company/solaros",
+                "https://twitter.com/solaros"
               ]
             }),
           }}

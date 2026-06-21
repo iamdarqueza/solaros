@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useTech } from "@/app/(technician)/layout";
+import { useTech } from "@/components/technician/TechContext";
 import TechProfileSwitcher from "@/components/technician/TechProfileSwitcher";
 import {
   technicianPortalService,
@@ -10,7 +10,7 @@ import {
 } from "@/services/technicianPortalService";
 import { workOrderService } from "@/services/workOrderService";
 
-type StatusFilter = "all" | "in_progress" | "scheduled" | "completed";
+type StatusFilter = "all" | "new" | "scheduled" | "in_progress" | "completed";
 
 function priorityColor(p: string) {
   switch (p) {
@@ -24,7 +24,9 @@ function priorityColor(p: string) {
 function statusColor(s: string) {
   switch (s) {
     case "in_progress": return "#f59e0b";
+    case "assigned":    return "#8b5cf6";
     case "scheduled":   return "#3b82f6";
+    case "requires_follow_up": return "#f43f5e";
     case "completed":   return "#10b981";
     case "cancelled":   return "#6b7280";
     default:            return "#6b7280";
@@ -33,12 +35,14 @@ function statusColor(s: string) {
 
 function typeIcon(t: string) {
   switch (t) {
-    case "installation": return "🔧";
-    case "repair":       return "⚡";
-    case "inspection":   return "🔍";
     case "cleaning":     return "🧹";
-    case "warranty":     return "🛡️";
-    case "emergency":    return "🚨";
+    case "inspection":   return "🔍";
+    case "repair":       return "⚡";
+    case "replacement":  return "♻️";
+    case "warranty_service": return "♻️";
+    case "maintenance":  return "🗓️";
+    case "installation_follow_up": return "🔧";
+    case "emergency_visit": return "🚨";
     default:             return "📋";
   }
 }
@@ -101,6 +105,9 @@ function JobCard({ job, onStartJob }: { job: WorkOrder; onStartJob: (id: string)
               <span className="ml-auto text-white/30">~{job.estimated_duration}h</span>
             </p>
           )}
+          <p className="text-xs text-white/35 flex items-center gap-1.5">
+            <span>↳</span> From: {job.source_label}
+          </p>
         </div>
 
         {/* Priority badge */}
@@ -113,13 +120,13 @@ function JobCard({ job, onStartJob }: { job: WorkOrder; onStartJob: (id: string)
           </span>
           <div className="flex items-center gap-2">
             {/* Start job button */}
-            {job.status === "scheduled" && (
+            {(job.status === "assigned" || job.status === "scheduled" || job.status === "requires_follow_up") && (
               <button
                 onClick={() => onStartJob(job.id)}
                 className="text-xs font-bold px-3 py-1.5 rounded-lg transition-all active:scale-95"
                 style={{ background: "linear-gradient(135deg, #f59e0b, #d97706)", color: "#000" }}
               >
-                Start Job
+                {job.status === "requires_follow_up" ? "Continue" : "Start Job"}
               </button>
             )}
             <Link
@@ -154,26 +161,38 @@ export default function JobsPage() {
   }, [profile.id]);
 
   async function handleStartJob(id: string) {
+    if (technicianPortalService.isMaintenanceJob({ id })) {
+      router.push(`/technician/jobs/${id}`);
+      return;
+    }
+
     await workOrderService.updateStatus(id, "in_progress");
     const data = await technicianPortalService.getMyJobs(profile.id);
     setJobs(data);
     router.push(`/technician/jobs/${id}`);
   }
 
-  const filtered = filter === "all" ? jobs : jobs.filter((j) => j.status === filter);
+  const visibleJobs = jobs.filter((j) => j.status !== "cancelled");
+  const filtered = filter === "all"
+    ? visibleJobs
+    : filter === "new"
+      ? visibleJobs.filter((j) => j.status === "new" || j.status === "assigned" || j.status === "requires_follow_up")
+      : visibleJobs.filter((j) => j.status === filter);
 
   const tabs: { key: StatusFilter; label: string }[] = [
     { key: "all", label: "All" },
-    { key: "in_progress", label: "Active" },
+    { key: "new", label: "New" },
     { key: "scheduled", label: "Scheduled" },
-    { key: "completed", label: "Done" },
+    { key: "in_progress", label: "In Progress" },
+    { key: "completed", label: "Completed" },
   ];
 
   const counts = {
-    all: jobs.length,
-    in_progress: jobs.filter((j) => j.status === "in_progress").length,
-    scheduled: jobs.filter((j) => j.status === "scheduled").length,
-    completed: jobs.filter((j) => j.status === "completed").length,
+    all: visibleJobs.length,
+    new: visibleJobs.filter((j) => j.status === "new" || j.status === "assigned" || j.status === "requires_follow_up").length,
+    scheduled: visibleJobs.filter((j) => j.status === "scheduled").length,
+    in_progress: visibleJobs.filter((j) => j.status === "in_progress").length,
+    completed: visibleJobs.filter((j) => j.status === "completed").length,
   };
 
   return (
@@ -181,8 +200,8 @@ export default function JobsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-xl font-bold text-white">Work Orders</h1>
-          <p className="text-xs text-white/40 mt-0.5">{jobs.length} assigned to you</p>
+          <h1 className="text-xl font-bold text-white">Jobs</h1>
+          <p className="text-xs text-white/40 mt-0.5">{visibleJobs.length} assigned field jobs</p>
         </div>
         <TechProfileSwitcher />
       </div>

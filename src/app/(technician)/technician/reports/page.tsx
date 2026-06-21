@@ -1,17 +1,19 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useTech } from "@/app/(technician)/layout";
+import { useTech } from "@/components/technician/TechContext";
 import TechProfileSwitcher from "@/components/technician/TechProfileSwitcher";
 import { technicianPortalService, type WorkOrder } from "@/services/technicianPortalService";
 
 function typeIcon(t: string) {
   switch (t) {
-    case "installation": return "🔧";
-    case "repair":       return "⚡";
-    case "inspection":   return "🔍";
     case "cleaning":     return "🧹";
-    case "warranty":     return "🛡️";
-    case "emergency":    return "🚨";
+    case "inspection":   return "🔍";
+    case "repair":       return "⚡";
+    case "replacement":  return "♻️";
+    case "warranty_service": return "♻️";
+    case "maintenance":  return "🗓️";
+    case "installation_follow_up": return "🔧";
+    case "emergency_visit": return "🚨";
     default:             return "📋";
   }
 }
@@ -77,6 +79,7 @@ function ReportCard({ job }: { job: WorkOrder }) {
             { label: "Parts / Materials", val: r.parts_used },
             { label: "Recommendations", val: r.recommendations },
             { label: "Technician Notes", val: r.technician_notes },
+            { label: "Customer Signature", val: r.customer_signature },
           ].filter((f) => f.val).map((f) => (
             <div key={f.label} className="pt-3">
               <p className="text-[10px] font-semibold text-white/35 uppercase tracking-widest mb-1.5">{f.label}</p>

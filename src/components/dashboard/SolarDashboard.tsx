@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 const IconUsers = () => (
@@ -81,12 +82,6 @@ const IconAlert = () => (
     <line x1="12" y1="17" x2="12.01" y2="17" />
   </svg>
 );
-const IconUser = () => (
-  <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-    <circle cx="12" cy="7" r="4" />
-  </svg>
-);
 const IconMapPin = () => (
   <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
@@ -109,6 +104,38 @@ type KpiCard = {
   icon: React.ReactNode;
   accent: string;
   bg: string;
+};
+
+type DateFilter = "today" | "week" | "month";
+
+type DashboardSummary = {
+  openWorkOrders: number;
+  scheduledToday: number;
+  overdueMaintenance: number;
+  technicianAssignments: number;
+  openTickets: number;
+  waitingForCustomer: number;
+  urgentTickets: number;
+  avgResponseTime: string;
+  warranties30: number;
+  warranties60: number;
+  warranties90: number;
+  activeWarrantyClaims: number;
+  equipmentUnderWarranty: number;
+  equipmentOutOfWarranty: number;
+  totalCustomers: number;
+  totalSites: number;
+  totalSolarSystems: number;
+  recentlyInstalled: number;
+};
+
+type SummarySection = {
+  title: string;
+  subtitle: string;
+  icon: React.ReactNode;
+  accent: string;
+  bg: string;
+  metrics: { label: string; value: string | number; alert?: boolean }[];
 };
 
 type Ticket = {
@@ -157,9 +184,79 @@ type MaintenanceEvent = {
   customer: string;
   type: string;
   tech: string;
+  status?: "scheduled" | "overdue";
 };
 
 // ── Mock Data ─────────────────────────────────────────────────────────────────
+const dateFilterLabels: Record<DateFilter, string> = {
+  today: "Today",
+  week: "This Week",
+  month: "This Month",
+};
+
+const dashboardSummaries: Record<DateFilter, DashboardSummary> = {
+  today: {
+    openWorkOrders: 21,
+    scheduledToday: 5,
+    overdueMaintenance: 3,
+    technicianAssignments: 4,
+    openTickets: 34,
+    waitingForCustomer: 6,
+    urgentTickets: 3,
+    avgResponseTime: "1h 42m",
+    warranties30: 2,
+    warranties60: 3,
+    warranties90: 5,
+    activeWarrantyClaims: 4,
+    equipmentUnderWarranty: 812,
+    equipmentOutOfWarranty: 35,
+    totalCustomers: 1284,
+    totalSites: 1398,
+    totalSolarSystems: 847,
+    recentlyInstalled: 4,
+  },
+  week: {
+    openWorkOrders: 38,
+    scheduledToday: 16,
+    overdueMaintenance: 5,
+    technicianAssignments: 12,
+    openTickets: 49,
+    waitingForCustomer: 11,
+    urgentTickets: 7,
+    avgResponseTime: "2h 05m",
+    warranties30: 2,
+    warranties60: 3,
+    warranties90: 9,
+    activeWarrantyClaims: 6,
+    equipmentUnderWarranty: 812,
+    equipmentOutOfWarranty: 35,
+    totalCustomers: 1284,
+    totalSites: 1398,
+    totalSolarSystems: 847,
+    recentlyInstalled: 12,
+  },
+  month: {
+    openWorkOrders: 74,
+    scheduledToday: 42,
+    overdueMaintenance: 9,
+    technicianAssignments: 27,
+    openTickets: 88,
+    waitingForCustomer: 19,
+    urgentTickets: 12,
+    avgResponseTime: "2h 18m",
+    warranties30: 2,
+    warranties60: 3,
+    warranties90: 9,
+    activeWarrantyClaims: 11,
+    equipmentUnderWarranty: 812,
+    equipmentOutOfWarranty: 35,
+    totalCustomers: 1284,
+    totalSites: 1398,
+    totalSolarSystems: 847,
+    recentlyInstalled: 31,
+  },
+};
+
 const kpiCards: KpiCard[] = [
   { label: "Total Customers", value: "1,284", change: "+12%", positive: true, icon: <IconUsers />, accent: "#465fff", bg: "rgba(70,95,255,0.08)" },
   { label: "Active Installations", value: "847", change: "+5%", positive: true, icon: <IconSolar />, accent: "#12b76a", bg: "rgba(18,183,106,0.08)" },
@@ -209,9 +306,9 @@ const recentActivity: Activity[] = [
 ];
 
 const maintenanceEvents: MaintenanceEvent[] = [
-  { day: 16, customer: "Pacific Solar Co.", type: "Annual Inspection", tech: "Dana Cruz" },
-  { day: 17, customer: "SunCrest Villas", type: "Panel Cleaning", tech: "Leila Santos" },
-  { day: 18, customer: "Ayala Residences", type: "Inverter Check", tech: "Marco Reyes" },
+  { day: 16, customer: "Pacific Solar Co.", type: "Annual Inspection", tech: "Dana Cruz", status: "overdue" },
+  { day: 17, customer: "SunCrest Villas", type: "Panel Cleaning", tech: "Leila Santos", status: "overdue" },
+  { day: 18, customer: "Ayala Residences", type: "Inverter Check", tech: "Marco Reyes", status: "overdue" },
   { day: 20, customer: "BF Homes", type: "Commissioning", tech: "Josh Tan" },
   { day: 23, customer: "Vista Land", type: "Performance Review", tech: "Dana Cruz" },
   { day: 25, customer: "Horizon Energy", type: "Battery Maintenance", tech: "Marco Reyes" },
@@ -261,6 +358,7 @@ const TOTAL_DAYS = 30;
 
 function MiniCalendar({ events, selectedDay, onSelect }: { events: MaintenanceEvent[]; selectedDay: number | null; onSelect: (d: number) => void }) {
   const eventDays = new Set(events.map((e) => e.day));
+  const overdueDays = new Set(events.filter((e) => e.status === "overdue").map((e) => e.day));
   const cells: (number | null)[] = [];
   for (let i = 0; i < START_DAY; i++) cells.push(null);
   for (let d = 1; d <= TOTAL_DAYS; d++) cells.push(d);
@@ -275,8 +373,9 @@ function MiniCalendar({ events, selectedDay, onSelect }: { events: MaintenanceEv
       <div className="grid grid-cols-7 gap-y-1">
         {cells.map((day, idx) => {
           if (!day) return <div key={`empty-${idx}`} />;
-          const today = day === 16;
+          const today = day === 20;
           const hasEvent = eventDays.has(day);
+          const hasOverdueEvent = overdueDays.has(day);
           const isSelected = selectedDay === day;
           return (
             <button
@@ -288,7 +387,7 @@ function MiniCalendar({ events, selectedDay, onSelect }: { events: MaintenanceEv
             >
               {day}
               {hasEvent && !isSelected && (
-                <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-brand-500" />
+                <span className={`absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full ${hasOverdueEvent ? "bg-error-500" : "bg-brand-500"}`} />
               )}
             </button>
           );
@@ -299,14 +398,14 @@ function MiniCalendar({ events, selectedDay, onSelect }: { events: MaintenanceEv
 }
 
 // ── Section Header ────────────────────────────────────────────────────────────
-function SectionHeader({ title, action }: { title: string; action?: string }) {
+function SectionHeader({ title, action, actionHref }: { title: string; action?: string; actionHref?: string }) {
   return (
     <div className="flex items-center justify-between mb-5">
       <h2 className="text-base font-semibold text-gray-900 dark:text-white">{title}</h2>
-      {action && (
-        <button className="flex items-center gap-1 text-sm font-medium text-brand-500 hover:text-brand-600 dark:text-brand-400 transition-colors">
+      {action && actionHref && (
+        <Link href={actionHref} className="flex items-center gap-1 text-sm font-medium text-brand-500 hover:text-brand-600 dark:text-brand-400 transition-colors">
           {action} <IconChevronRight />
-        </button>
+        </Link>
       )}
     </div>
   );
@@ -321,9 +420,71 @@ function Card({ children, className = "" }: { children: React.ReactNode; classNa
   );
 }
 
+function buildSummarySections(summary: DashboardSummary): SummarySection[] {
+  return [
+    {
+      title: "Operations",
+      subtitle: "Field jobs and schedules",
+      icon: <IconWrench />,
+      accent: "#7a5af8",
+      bg: "rgba(122,90,248,0.08)",
+      metrics: [
+        { label: "Open work orders", value: summary.openWorkOrders },
+        { label: "Scheduled work orders", value: summary.scheduledToday },
+        { label: "Overdue maintenance", value: summary.overdueMaintenance, alert: summary.overdueMaintenance > 0 },
+        { label: "Technician assignments", value: summary.technicianAssignments },
+      ],
+    },
+    {
+      title: "Customer Support",
+      subtitle: "Tickets needing follow-up",
+      icon: <IconTicket />,
+      accent: "#f79009",
+      bg: "rgba(247,144,9,0.08)",
+      metrics: [
+        { label: "Open tickets", value: summary.openTickets },
+        { label: "Waiting for customer", value: summary.waitingForCustomer },
+        { label: "Urgent tickets", value: summary.urgentTickets, alert: summary.urgentTickets > 0 },
+        { label: "Avg. response time", value: summary.avgResponseTime },
+      ],
+    },
+    {
+      title: "Warranty Risk",
+      subtitle: "Coverage and claims",
+      icon: <IconShield />,
+      accent: "#f04438",
+      bg: "rgba(240,68,56,0.08)",
+      metrics: [
+        { label: "Expiring in 30 days", value: summary.warranties30, alert: summary.warranties30 > 0 },
+        { label: "Expiring in 60 days", value: summary.warranties60 },
+        { label: "Expiring in 90 days", value: summary.warranties90 },
+        { label: "Active claims", value: summary.activeWarrantyClaims },
+        { label: "Equipment under warranty", value: summary.equipmentUnderWarranty.toLocaleString() },
+        { label: "Equipment out of warranty", value: summary.equipmentOutOfWarranty, alert: summary.equipmentOutOfWarranty > 0 },
+      ],
+    },
+    {
+      title: "System Records",
+      subtitle: "Customer and system footprint",
+      icon: <IconSolar />,
+      accent: "#12b76a",
+      bg: "rgba(18,183,106,0.08)",
+      metrics: [
+        { label: "Total customers", value: summary.totalCustomers.toLocaleString() },
+        { label: "Total sites", value: summary.totalSites.toLocaleString() },
+        { label: "Total solar systems", value: summary.totalSolarSystems.toLocaleString() },
+        { label: "Recently installed", value: summary.recentlyInstalled },
+      ],
+    },
+  ];
+}
+
 // ── Main Dashboard ────────────────────────────────────────────────────────────
 export default function SolarDashboard() {
-  const [selectedDay, setSelectedDay] = useState<number | null>(16);
+  const [selectedDay, setSelectedDay] = useState<number | null>(20);
+  const [dateFilter, setDateFilter] = useState<DateFilter>("today");
+  const activeSummary = dashboardSummaries[dateFilter];
+  const summarySections = buildSummarySections(activeSummary);
   const selectedEvents = maintenanceEvents.filter((e) => e.day === selectedDay);
 
   return (
@@ -333,7 +494,7 @@ export default function SolarDashboard() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Operations Overview</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            {MONTH} · Solar Service & Warranty Management
+            {MONTH} · Solar after-sales, warranty, maintenance, and field service management
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -341,11 +502,98 @@ export default function SolarDashboard() {
             <span className="w-1.5 h-1.5 rounded-full bg-success-500 animate-pulse" />
             Live
           </div>
-          <button className="px-4 py-2 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-lg transition-colors shadow-sm">
+          <Link href="/work-orders/active" className="px-4 py-2 text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-lg transition-colors shadow-sm">
             + New Work Order
-          </button>
+          </Link>
         </div>
       </div>
+
+      <Card>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand-600 dark:text-brand-400">
+              SolarOS record flow
+            </p>
+            <h2 className="mt-1 text-lg font-semibold text-gray-900 dark:text-white">
+              Customer -&gt; Site -&gt; Solar System -&gt; Service Job -&gt; Service History
+            </h2>
+            <p className="mt-2 max-w-3xl text-sm text-gray-500 dark:text-gray-400">
+              Support tickets, maintenance visits, and warranty claims can all create or link to a work order. Technicians see those work orders as jobs, then attach photos and service reports for the customer record.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4 lg:w-[440px]">
+            {[
+              { label: "Customer Portal", href: "/portal" },
+              { label: "Support Tickets", href: "/support/tickets" },
+              { label: "Maintenance", href: "/maintenance/schedule" },
+              { label: "Technician Jobs", href: "/technician/today" },
+            ].map((item) => (
+              <Link
+                key={item.label}
+                href={item.href}
+                className="rounded-xl border border-gray-200 px-3 py-2 font-medium text-gray-600 transition-colors hover:border-brand-200 hover:bg-brand-50 hover:text-brand-600 dark:border-gray-800 dark:text-gray-300 dark:hover:border-brand-500/30 dark:hover:bg-brand-500/10 dark:hover:text-brand-400"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      </Card>
+
+      <Card>
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-error-600 dark:text-error-400">Needs attention</p>
+            <h2 className="mt-1 text-lg font-semibold text-gray-900 dark:text-white">
+              {activeSummary.scheduledToday} jobs scheduled, {activeSummary.overdueMaintenance} overdue maintenance items, and {activeSummary.urgentTickets} urgent tickets
+            </h2>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Filter the operational snapshot without leaving the dashboard.
+            </p>
+          </div>
+          <div className="inline-flex rounded-xl border border-gray-200 bg-gray-50 p-1 dark:border-gray-800 dark:bg-gray-950">
+            {(Object.keys(dateFilterLabels) as DateFilter[]).map((filter) => (
+              <button
+                key={filter}
+                type="button"
+                onClick={() => setDateFilter(filter)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  dateFilter === filter
+                    ? "bg-white text-brand-600 shadow-sm dark:bg-gray-800 dark:text-brand-400"
+                    : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                }`}
+              >
+                {dateFilterLabels[filter]}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {summarySections.map((section) => (
+            <div key={section.title} className="rounded-2xl border border-gray-100 p-4 dark:border-gray-800">
+              <div className="mb-4 flex items-start gap-3">
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: section.bg, color: section.accent }}>
+                  {section.icon}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{section.title}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{section.subtitle}</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {section.metrics.map((metric) => (
+                  <div key={metric.label} className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-gray-500 dark:text-gray-400">{metric.label}</span>
+                    <span className={`font-semibold ${metric.alert ? "text-error-600 dark:text-error-400" : "text-gray-900 dark:text-white"}`}>
+                      {metric.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
@@ -395,7 +643,14 @@ export default function SolarDashboard() {
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{ev.type}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{ev.customer}</p>
-                    <p className="text-xs text-brand-500 dark:text-brand-400 mt-0.5">{ev.tech}</p>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                      <p className="text-xs text-brand-500 dark:text-brand-400">{ev.tech}</p>
+                      {ev.status === "overdue" && (
+                        <span className="rounded-full bg-error-50 px-2 py-0.5 text-xs font-semibold text-error-600 dark:bg-error-500/10 dark:text-error-400">
+                          Overdue
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))
@@ -410,7 +665,7 @@ export default function SolarDashboard() {
 
         {/* Open Tickets */}
         <Card className="lg:col-span-3">
-          <SectionHeader title="Open Support Tickets" action="View All" />
+          <SectionHeader title="Open Support Tickets" action="View All" actionHref="/support/tickets" />
           <div className="space-y-3">
             {tickets.map((t) => {
               const p = priorityConfig[t.priority];
@@ -447,7 +702,7 @@ export default function SolarDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Technician Assignments */}
         <Card>
-          <SectionHeader title="Active Technician Assignments" action="Manage" />
+          <SectionHeader title="Active Technician Jobs" action="Open Portal" actionHref="/technician/today" />
           <div className="space-y-3">
             {technicians.map((tech) => {
               const ts = techStatusConfig[tech.status];
@@ -479,7 +734,7 @@ export default function SolarDashboard() {
 
         {/* Recently Installed Systems */}
         <Card>
-          <SectionHeader title="Recently Installed Systems" action="View All" />
+          <SectionHeader title="Recent Sites & Solar Systems" action="Customer Records" actionHref="/customers" />
           <div className="space-y-3">
             {installations.map((inst, i) => (
               <div key={i} className="flex items-center gap-3 p-3.5 rounded-xl border border-gray-100 dark:border-gray-800 hover:border-gray-200 dark:hover:border-gray-700 transition-all duration-150">
@@ -510,7 +765,7 @@ export default function SolarDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         {/* Warranty Expiration Alerts */}
         <Card className="lg:col-span-2">
-          <SectionHeader title="Warranty Expiration Alerts" action="View All" />
+          <SectionHeader title="Warranty Expiration Alerts" action="View All" actionHref="/warranties/expiring" />
           <div className="space-y-3">
             {warrantyAlerts.map((w, i) => {
               const color = getDaysLeftColor(w.daysLeft);
@@ -547,7 +802,7 @@ export default function SolarDashboard() {
 
         {/* Recent Customer Activity */}
         <Card className="lg:col-span-3">
-          <SectionHeader title="Recent Customer Activity" action="View Log" />
+          <SectionHeader title="Recent Service History" action="View Customers" actionHref="/customers" />
           <div className="space-y-1">
             {recentActivity.map((a, i) => {
               const ai = activityIcon(a.type);

@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import Link from "next/link";
 import { customersService, Customer, SupportTicket } from "@/services/customersService";
 import {
   getTicketPriorityBadge,
@@ -61,6 +62,10 @@ export default function SupportTicketsTab({ customer }: SupportTicketsTabProps) 
 
   return (
     <div className="space-y-5">
+      <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-300">
+        Support tickets capture customer issues, questions, and requests. If the issue needs a technician visit, the ticket should create or link to a work order.
+      </div>
+
       {/* Filter tabs */}
       <div className="flex flex-wrap gap-1.5">
         {(["all", "open", "in_progress", "resolved", "closed"] as const).map((s) => (
@@ -176,6 +181,19 @@ export default function SupportTicketsTab({ customer }: SupportTicketsTabProps) 
                             <p className="font-medium text-gray-700 dark:text-gray-300">{ticket.assigned_to}</p>
                           </div>
                         )}
+                        <div>
+                          <p className="text-xs text-gray-400 dark:text-gray-500">Field Service</p>
+                          {ticket.related_work_order_id ? (
+                            <Link
+                              href={`/work-orders/${ticket.related_work_order_id}`}
+                              className="font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
+                            >
+                              {ticket.related_work_order_id}
+                            </Link>
+                          ) : (
+                            <p className="font-medium text-gray-700 dark:text-gray-300">Can link to work order</p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}

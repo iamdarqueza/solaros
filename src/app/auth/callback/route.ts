@@ -5,6 +5,7 @@ import { validateGoogleEmail } from '@/utils/emailValidation'
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
+  const invite = requestUrl.searchParams.get('invite')
 
   const type = requestUrl.searchParams.get('type')
 
@@ -23,7 +24,12 @@ export async function GET(request: NextRequest) {
 
     // Handle email confirmation
     if (type === 'signup' || type === 'email') {
-      return NextResponse.redirect(new URL('/signin?message=Email confirmed! You can now sign in.', requestUrl.origin))
+      const redirectUrl = new URL('/signin', requestUrl.origin);
+      redirectUrl.searchParams.set('message', 'Email confirmed! You can now sign in.');
+      if (invite) {
+        redirectUrl.searchParams.set('invite', invite);
+      }
+      return NextResponse.redirect(redirectUrl)
     }
 
     // Validate the email from Google OAuth
@@ -45,5 +51,9 @@ export async function GET(request: NextRequest) {
   }
 
   // Redirect to dashboard after successful authentication
+  if (invite) {
+    return NextResponse.redirect(new URL(`/company-setup?invite=${encodeURIComponent(invite)}`, requestUrl.origin))
+  }
+
   return NextResponse.redirect(new URL('/', requestUrl.origin))
 } 

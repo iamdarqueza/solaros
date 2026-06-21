@@ -4,7 +4,7 @@ import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import SupportTicketList from "@/components/support/SupportTicketList";
 
 export const metadata: Metadata = {
-  title: "Support Tickets | SolarOps",
+  title: "Support Tickets | SolarOS",
   description: "Manage customer support tickets, track issues, and communicate with customers from a central support hub.",
 };
 

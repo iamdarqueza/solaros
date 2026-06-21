@@ -22,8 +22,8 @@ const tabs = [
     ),
   },
   {
-    label: "Tasks",
-    href: "/technician/tasks",
+    label: "Completed",
+    href: "/technician/completed",
     icon: (active: boolean) => (
       <svg viewBox="0 0 24 24" fill={active ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" className="w-6 h-6">
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -36,6 +36,15 @@ const tabs = [
     icon: (active: boolean) => (
       <svg viewBox="0 0 24 24" fill={active ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" className="w-6 h-6">
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+    ),
+  },
+  {
+    label: "Profile",
+    href: "/technician/profile",
+    icon: (active: boolean) => (
+      <svg viewBox="0 0 24 24" fill={active ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" className="w-6 h-6">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 7.5a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 21a7.5 7.5 0 0115 0" />
       </svg>
     ),
   },
@@ -66,7 +75,7 @@ export default function BottomNav() {
             <Link
               key={tab.href}
               href={tab.href}
-              className="flex flex-col items-center gap-1 px-5 py-1.5 rounded-xl transition-all duration-200 min-w-[60px]"
+              className="flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all duration-200 min-w-[56px]"
               style={{
                 color: active ? "#f59e0b" : "rgba(255,255,255,0.45)",
                 background: active ? "rgba(245,158,11,0.12)" : "transparent",

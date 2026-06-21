@@ -17,7 +17,7 @@ const NAV_ITEMS = [
   },
   {
     href: "/portal/system",
-    label: "My System",
+    label: "My Solar Systems",
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -68,11 +68,21 @@ const NAV_ITEMS = [
   },
   {
     href: "/portal/work-orders",
-    label: "Work Orders",
+    label: "Service Visits",
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
           d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+      </svg>
+    ),
+  },
+  {
+    href: "/portal/service-history",
+    label: "Service History",
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
     ),
   },
@@ -98,7 +108,7 @@ export default function CustomerSidebar() {
             </svg>
           </div>
           <div>
-            <p className="text-sm font-bold text-gray-900">SolarOps</p>
+            <p className="text-sm font-bold text-gray-900">SolarOS</p>
             <p className="text-xs text-gray-500">Customer Portal</p>
           </div>
         </div>

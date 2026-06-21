@@ -1,5 +1,9 @@
 "use client";
-import React, { useState } from "react";
+
+import React, { useEffect, useState } from "react";
+import { completeCompanySetupAction, joinOrganizationAction } from "@/actions/companySetupActions";
+import { supabase } from "@/lib/supabase";
+import { useSearchParams } from "next/navigation";
 
 interface CompanySetupProps {
   user: {
@@ -12,351 +16,371 @@ interface CompanySetupProps {
   onComplete: () => Promise<void>;
 }
 
-type Step = "company_name" | "systems_installed" | "biggest_challenge" | "creating";
+type SetupMode = "choose" | "create" | "join";
 
-type SystemsRange = "under_100" | "100_500" | "500_2000" | "2000_plus";
-type Challenge =
-  | "customer_support"
-  | "warranty_management"
-  | "maintenance_scheduling"
-  | "technician_management"
-  | "monitoring"
-  | "everything";
+interface ErrorLike {
+  message?: string;
+  details?: string;
+  hint?: string;
+  code?: string;
+}
 
-const STEPS: Step[] = ["company_name", "systems_installed", "biggest_challenge", "creating"];
-const STEP_INDEX: Record<Step, number> = {
-  company_name: 0,
-  systems_installed: 1,
-  biggest_challenge: 2,
-  creating: 3,
-};
+const INPUT_CLASS =
+  "w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 placeholder-gray-400 transition focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500";
 
-const SYSTEMS_OPTIONS: { value: SystemsRange; label: string }[] = [
-  { value: "under_100", label: "Under 100" },
-  { value: "100_500", label: "100–500" },
-  { value: "500_2000", label: "500–2,000" },
-  { value: "2000_plus", label: "2,000+" },
-];
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
 
-const CHALLENGE_OPTIONS: { value: Challenge; label: string; icon: string }[] = [
-  { value: "customer_support", label: "Customer support", icon: "💬" },
-  { value: "warranty_management", label: "Warranty management", icon: "🛡️" },
-  { value: "maintenance_scheduling", label: "Maintenance scheduling", icon: "🔧" },
-  { value: "technician_management", label: "Technician management", icon: "👷" },
-  { value: "monitoring", label: "Monitoring", icon: "📊" },
-  { value: "everything", label: "Everything", icon: "🚀" },
-];
+  if (error && typeof error === "object") {
+    const message = "message" in error ? error.message : null;
+    if (typeof message === "string" && message.trim()) return message;
+  }
 
+  return "Something went wrong. Please try again.";
+}
 
+function logSetupError(label: string, error: unknown) {
+  const setupError = error as ErrorLike | null | undefined;
 
-export default function CompanySetup({ user, onComplete }: CompanySetupProps) {
-  const [step, setStep] = useState<Step>("company_name");
-  const [companyName, setCompanyName] = useState("");
-  const [systemsInstalled, setSystemsInstalled] = useState<SystemsRange | null>(null);
-  const [biggestChallenge, setBiggestChallenge] = useState<Challenge | null>(null);
+  console.error(label, {
+    message: setupError?.message,
+    details: setupError?.details,
+    hint: setupError?.hint,
+    code: setupError?.code,
+    raw: error,
+  });
+}
+
+export default function CompanySetup({ onComplete }: CompanySetupProps) {
+  const searchParams = useSearchParams();
+  const [mode, setMode] = useState<SetupMode>("choose");
+  const [organizationName, setOrganizationName] = useState("");
+  const [businessType, setBusinessType] = useState("");
+  const [phone, setPhone] = useState("");
+  const [website, setWebsite] = useState("");
+  const [address, setAddress] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [creationDone, setCreationDone] = useState(false);
 
-  const currentStepIndex = STEP_INDEX[step];
-  const totalSteps = 3; // exclude "creating" from the visible progress
+  useEffect(() => {
+    const invite = searchParams.get("invite");
+    if (invite) {
+      setInviteCode(invite);
+      setMode("join");
+    }
+  }, [searchParams]);
 
-  const goNext = () => {
-    const idx = STEP_INDEX[step];
-    setStep(STEPS[idx + 1]);
+  const getAccessToken = async () => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+
+    if (!accessToken) {
+      throw new Error("Your session expired. Please sign in again.");
+    }
+
+    return accessToken;
   };
 
-  const goBack = () => {
-    const idx = STEP_INDEX[step];
-    if (idx > 0) setStep(STEPS[idx - 1]);
-  };
+  const handleCreateOrganization = async (event: React.FormEvent) => {
+    event.preventDefault();
 
-  const createWorkspace = async () => {
-    setStep("creating");
+    if (!organizationName.trim()) {
+      setError("Organization name is required.");
+      return;
+    }
+
     setLoading(true);
     setError("");
 
     try {
-      // TODO: Wire up Supabase writes once backend is ready
-      // Simulate workspace creation with a brief animation
-      await new Promise((r) => setTimeout(r, 1400));
-      setCreationDone(true);
+      const accessToken = await getAccessToken();
 
-      await new Promise((r) => setTimeout(r, 800));
+      await completeCompanySetupAction({
+        accessToken,
+        companyName: organizationName,
+        businessType: businessType || null,
+        phone: phone || null,
+        website: website || null,
+        address: address || null,
+      });
+
       await onComplete();
     } catch (err: unknown) {
-      console.error("Error creating workspace:", err);
-      setError((err as Error).message || "Failed to create workspace");
-      setStep("biggest_challenge");
+      logSetupError("Error creating organization:", err);
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
   };
 
-  // ─── Progress bar ────────────────────────────────────────────────────────────
-  const ProgressBar = () => (
-    <div className="w-full max-w-sm mx-auto mb-10">
-      <div className="flex gap-2">
-        {[0, 1, 2].map((i) => (
-          <div
-            key={i}
-            className={`h-1 flex-1 rounded-full transition-all duration-500 ${
-              i <= currentStepIndex
-                ? "bg-brand-600"
-                : "bg-gray-200 dark:bg-gray-700"
-            }`}
-          />
-        ))}
+  const handleJoinOrganization = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (!inviteCode.trim()) {
+      setError("Enter an invite code or invite link.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const accessToken = await getAccessToken();
+
+      await joinOrganizationAction({
+        accessToken,
+        inviteCode,
+      });
+
+      window.localStorage.removeItem("solaros_pending_invite");
+      await onComplete();
+    } catch (err: unknown) {
+      logSetupError("Error joining organization:", err);
+      setError(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetMode = () => {
+    setMode("choose");
+    setError("");
+  };
+
+  return (
+    <div className="min-h-screen bg-white px-6 py-10 dark:bg-gray-900">
+      <div className="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-5xl items-center justify-center">
+        <div className="grid w-full overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-xl dark:border-gray-800 dark:bg-gray-900 lg:grid-cols-[0.9fr_1.1fr]">
+          <div className="bg-brand-950 p-8 text-white lg:p-10">
+            <div className="mb-10 inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/80">
+              Company Setup
+            </div>
+            <h1 className="mb-4 text-3xl font-bold">
+              Connect your account to an organization
+            </h1>
+            <p className="text-sm leading-6 text-white/70">
+              SolarOS workspaces are scoped by organization. Create a new organization if you own the workspace, or join an existing one with an invite code.
+            </p>
+            <div className="mt-10 space-y-4 text-sm text-white/70">
+              <div className="flex gap-3">
+                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-semibold">1</span>
+                <p>Organization data is kept separate with organization membership checks.</p>
+              </div>
+              <div className="flex gap-3">
+                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-semibold">2</span>
+                <p>Admins and owners can manage customers, systems, tickets, warranties, and work orders.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-6 dark:bg-gray-900 sm:p-8 lg:p-10">
+            {mode === "choose" && (
+              <div>
+                <h2 className="mb-2 text-2xl font-semibold text-gray-900 dark:text-white">
+                  How do you want to continue?
+                </h2>
+                <p className="mb-8 text-sm text-gray-500 dark:text-gray-400">
+                  Choose the setup path that matches your SolarOS workspace.
+                </p>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => setMode("create")}
+                    className="rounded-2xl border border-gray-200 p-5 text-left transition hover:border-brand-300 hover:bg-brand-50 dark:border-gray-700 dark:hover:border-brand-700 dark:hover:bg-brand-900/10"
+                  >
+                    <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/20 dark:text-brand-300">
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4M9 9h.01M9 13h.01M9 17h.01M13 17h.01M17 17h.01" />
+                      </svg>
+                    </div>
+                    <h3 className="mb-2 font-semibold text-gray-900 dark:text-white">Create Organization</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Start a new SolarOS workspace and become the owner.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setMode("join")}
+                    className="rounded-2xl border border-gray-200 p-5 text-left transition hover:border-brand-300 hover:bg-brand-50 dark:border-gray-700 dark:hover:border-brand-700 dark:hover:bg-brand-900/10"
+                  >
+                    <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:bg-brand-900/20 dark:text-brand-300">
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3M13 7a4 4 0 11-8 0 4 4 0 018 0zM3 21a6 6 0 0112 0v1H3v-1z" />
+                      </svg>
+                    </div>
+                    <h3 className="mb-2 font-semibold text-gray-900 dark:text-white">Join Organization</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Use an invite code from an existing SolarOS organization.
+                    </p>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {mode === "create" && (
+              <form onSubmit={handleCreateOrganization}>
+                <button
+                  type="button"
+                  onClick={resetMode}
+                  className="mb-6 text-sm font-medium text-gray-500 transition hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                  Back
+                </button>
+
+                <h2 className="mb-2 text-2xl font-semibold text-gray-900 dark:text-white">
+                  Create your organization
+                </h2>
+                <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
+                  You will be added as the organization owner.
+                </p>
+
+                {error && (
+                  <div className="mb-5 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/10 dark:text-red-400">
+                    {error}
+                  </div>
+                )}
+
+                <div className="space-y-4">
+                  <SetupField label="Organization name" required>
+                    <input
+                      type="text"
+                      value={organizationName}
+                      onChange={(event) => setOrganizationName(event.target.value)}
+                      placeholder="Solar Future Inc"
+                      className={INPUT_CLASS}
+                      required
+                    />
+                  </SetupField>
+
+                  <SetupField label="Business type" optional>
+                    <input
+                      type="text"
+                      value={businessType}
+                      onChange={(event) => setBusinessType(event.target.value)}
+                      placeholder="Installer, EPC, O&M provider"
+                      className={INPUT_CLASS}
+                    />
+                  </SetupField>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <SetupField label="Phone" optional>
+                      <input
+                        type="tel"
+                        value={phone}
+                        onChange={(event) => setPhone(event.target.value)}
+                        placeholder="+63 900 000 0000"
+                        className={INPUT_CLASS}
+                      />
+                    </SetupField>
+
+                    <SetupField label="Website" optional>
+                      <input
+                        type="url"
+                        value={website}
+                        onChange={(event) => setWebsite(event.target.value)}
+                        placeholder="https://example.com"
+                        className={INPUT_CLASS}
+                      />
+                    </SetupField>
+                  </div>
+
+                  <SetupField label="Address" optional>
+                    <textarea
+                      value={address}
+                      onChange={(event) => setAddress(event.target.value)}
+                      placeholder="Office address"
+                      rows={3}
+                      className={`${INPUT_CLASS} resize-none`}
+                    />
+                  </SetupField>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="mt-6 w-full rounded-xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {loading ? "Creating organization..." : "Create Organization"}
+                </button>
+              </form>
+            )}
+
+            {mode === "join" && (
+              <form onSubmit={handleJoinOrganization}>
+                <button
+                  type="button"
+                  onClick={resetMode}
+                  className="mb-6 text-sm font-medium text-gray-500 transition hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                  Back
+                </button>
+
+                <h2 className="mb-2 text-2xl font-semibold text-gray-900 dark:text-white">
+                  Join an organization
+                </h2>
+                <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
+                  Enter an invite code or paste the invite link from your workspace admin.
+                </p>
+
+                {error && (
+                  <div className="mb-5 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/10 dark:text-red-400">
+                    {error}
+                  </div>
+                )}
+
+                <SetupField label="Invite code or link" required>
+                  <input
+                    type="text"
+                    value={inviteCode}
+                    onChange={(event) => setInviteCode(event.target.value)}
+                    placeholder="Paste invite code or link"
+                    className={INPUT_CLASS}
+                    required
+                  />
+                </SetupField>
+
+                <div className="mt-4 rounded-xl border border-brand-100 bg-brand-50 p-3 text-sm text-brand-700 dark:border-brand-500/20 dark:bg-brand-500/10 dark:text-brand-300">
+                  Ask an owner or admin for the invite code from Settings → Users & Roles.
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="mt-6 w-full rounded-xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {loading ? "Checking invite..." : "Join Organization"}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
       </div>
-      <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 text-right">
-        Step {Math.min(currentStepIndex + 1, totalSteps)} of {totalSteps}
-      </p>
     </div>
   );
+}
 
-  // ─── Back button ─────────────────────────────────────────────────────────────
-  const BackButton = () => (
-    <button
-      onClick={goBack}
-      className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 mb-8 transition-colors"
-    >
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-      </svg>
-      Back
-    </button>
+function SetupField({
+  label,
+  children,
+  required,
+  optional,
+}: {
+  label: string;
+  children: React.ReactNode;
+  required?: boolean;
+  optional?: boolean;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 flex items-center gap-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+        {label}
+        {required && <span className="text-red-500">*</span>}
+        {optional && <span className="text-xs font-normal text-gray-400">(optional)</span>}
+      </span>
+      {children}
+    </label>
   );
-
-  // ─── Screen 2: Company name ───────────────────────────────────────────────────
-  if (step === "company_name") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900 px-6">
-        <div className="w-full max-w-sm">
-          <ProgressBar />
-
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-              What's your company name?
-            </h1>
-            <p className="text-sm text-gray-400 dark:text-gray-500">
-              This will be your workspace name on Fewblocs.
-            </p>
-          </div>
-
-          {error && (
-            <div className="mb-5 p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl dark:bg-red-900/10 dark:border-red-800 dark:text-red-400">
-              {error}
-            </div>
-          )}
-
-          <div className="space-y-3">
-            <input
-              type="text"
-              placeholder="Solar Future Inc"
-              value={companyName}
-              onChange={(e) => setCompanyName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && companyName.trim()) goNext();
-              }}
-              autoFocus
-              className="w-full px-4 py-3.5 text-base rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-300 dark:placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all"
-            />
-
-            <button
-              onClick={() => {
-                if (!companyName.trim()) {
-                  setError("Please enter your company name");
-                  return;
-                }
-                setError("");
-                goNext();
-              }}
-              className="w-full py-3.5 px-4 rounded-xl text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 active:bg-brand-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 transition-all duration-200 shadow-sm hover:shadow-md"
-            >
-              Continue →
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ─── Screen 3: Systems installed ─────────────────────────────────────────────
-  if (step === "systems_installed") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900 px-6">
-        <div className="w-full max-w-sm">
-          <BackButton />
-          <ProgressBar />
-
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-              How many systems have you installed?
-            </h1>
-            <p className="text-sm text-gray-400 dark:text-gray-500">
-              This helps us tailor your experience.
-            </p>
-          </div>
-
-          <div className="space-y-3">
-            {SYSTEMS_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => {
-                  setSystemsInstalled(opt.value);
-                  goNext();
-                }}
-                className={`w-full flex items-center justify-between px-5 py-4 rounded-xl border text-left transition-all duration-150 group ${
-                  systemsInstalled === opt.value
-                    ? "border-brand-500 bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300"
-                    : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:border-brand-300 dark:hover:border-brand-700 hover:bg-brand-50/50 dark:hover:bg-brand-900/10"
-                }`}
-              >
-                <span className="font-medium">{opt.label}</span>
-                <svg
-                  className={`w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity ${
-                    systemsInstalled === opt.value ? "opacity-100 text-brand-600" : "text-gray-400"
-                  }`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ─── Screen 4: Biggest challenge ─────────────────────────────────────────────
-  if (step === "biggest_challenge") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900 px-6">
-        <div className="w-full max-w-sm">
-          <BackButton />
-          <ProgressBar />
-
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-              What is your biggest challenge?
-            </h1>
-            <p className="text-sm text-gray-400 dark:text-gray-500">
-              We'll prioritize the tools that matter most to you.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            {CHALLENGE_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => setBiggestChallenge(opt.value)}
-                className={`flex flex-col items-start gap-2 px-4 py-4 rounded-xl border text-left transition-all duration-150 ${
-                  biggestChallenge === opt.value
-                    ? "border-brand-500 bg-brand-50 dark:bg-brand-900/20 ring-2 ring-brand-200 dark:ring-brand-800"
-                    : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-brand-300 dark:hover:border-brand-700"
-                }`}
-              >
-                <span className="text-xl">{opt.icon}</span>
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-200 leading-tight">
-                  {opt.label}
-                </span>
-              </button>
-            ))}
-          </div>
-
-          <button
-            onClick={() => {
-              if (!biggestChallenge) {
-                setError("Please select your biggest challenge");
-                return;
-              }
-              setError("");
-              createWorkspace();
-            }}
-            disabled={!biggestChallenge}
-            className="mt-6 w-full py-3.5 px-4 rounded-xl text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 active:bg-brand-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
-          >
-            Create my workspace →
-          </button>
-
-          {error && (
-            <p className="mt-3 text-sm text-red-500 text-center">{error}</p>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // ─── Screen 5: Creating workspace ────────────────────────────────────────────
-  if (step === "creating") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900 px-6">
-        <div className="w-full max-w-sm text-center">
-          {!creationDone ? (
-            <>
-              {/* Animated spinner */}
-              <div className="inline-flex items-center justify-center w-20 h-20 mb-8 rounded-full bg-brand-50 dark:bg-brand-900/20">
-                <div className="w-10 h-10 border-4 border-brand-200 dark:border-brand-800 border-t-brand-600 rounded-full animate-spin" />
-              </div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-                Creating your workspace…
-              </h1>
-              <p className="text-sm text-gray-400 dark:text-gray-500">
-                Setting up <span className="font-medium text-gray-600 dark:text-gray-300">{companyName}</span> on Fewblocs
-              </p>
-
-              {/* Animated progress steps */}
-              <div className="mt-10 space-y-3 text-left max-w-xs mx-auto">
-                {[
-                  "Creating your organization",
-                  "Setting up your workspace",
-                  "Preparing your dashboard",
-                ].map((label, i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <div
-                      className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
-                        loading
-                          ? i === 0
-                            ? "bg-brand-600"
-                            : "bg-gray-200 dark:bg-gray-700"
-                          : "bg-brand-600"
-                      } transition-all duration-700`}
-                      style={{ transitionDelay: `${i * 300}ms` }}
-                    >
-                      {(!loading || i === 0) && (
-                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </div>
-                    <span className="text-sm text-gray-500 dark:text-gray-400">{label}</span>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : (
-            <>
-              {/* Success state */}
-              <div className="inline-flex items-center justify-center w-20 h-20 mb-8 rounded-full bg-green-50 dark:bg-green-900/20 animate-[bounceIn_0.5s_ease-out]">
-                <svg className="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-                You're all set! 🎉
-              </h1>
-              <p className="text-sm text-gray-400 dark:text-gray-500">
-                Taking you to your dashboard…
-              </p>
-            </>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  return null;
 }

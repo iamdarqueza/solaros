@@ -58,6 +58,10 @@ export default function WarrantiesTab({ customer }: WarrantiesTabProps) {
 
   return (
     <div className="space-y-6">
+      <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-300">
+        Warranties are tied to a customer installation and can produce warranty claims. Claims that require a site visit should create or link to a work order.
+      </div>
+
       {/* Summary */}
       <div className="grid grid-cols-3 gap-3">
         {[
@@ -94,7 +98,7 @@ export default function WarrantiesTab({ customer }: WarrantiesTabProps) {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-100 dark:border-gray-800">
-                    {["Component", "Manufacturer", "Coverage", "Start Date", "Expiry", "Days Left", "Claims", "Status"].map(
+                    {["Component", "Manufacturer", "Coverage", "Linked Site/System", "Start Date", "Expiry", "Days Left", "Claims", "Status"].map(
                       (col) => (
                         <th
                           key={col}
@@ -119,6 +123,11 @@ export default function WarrantiesTab({ customer }: WarrantiesTabProps) {
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
                           {w.coverage_type}
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <span className="rounded-full bg-brand-50 px-2 py-1 text-xs font-medium text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
+                            {w.installation_id}
+                          </span>
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
                           {formatDate(w.start_date)}

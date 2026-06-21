@@ -4,7 +4,7 @@ import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import WorkOrderDetail from "@/components/work-orders/WorkOrderDetail";
 
 export const metadata: Metadata = {
-  title: "Work Order Detail | SolarOps",
+  title: "Work Order Detail | SolarOS",
   description: "View and manage a single work order, including technician assignment, photos, and service report.",
 };
 

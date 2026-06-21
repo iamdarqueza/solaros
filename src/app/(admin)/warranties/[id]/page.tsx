@@ -4,7 +4,7 @@ import PageBreadCrumb from "@/components/common/PageBreadCrumb";
 import WarrantyDetail from "@/components/warranties/WarrantyDetail";
 
 export const metadata: Metadata = {
-  title: "Warranty Detail | SolarOps",
+  title: "Warranty Detail | SolarOS",
   description: "View complete details, coverage information, and claims history for a warranty.",
 };
 

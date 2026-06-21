@@ -4,7 +4,7 @@ import PageBreadcrumb from "@/components/common/PageBreadCrumb";
 import WorkOrderList from "@/components/work-orders/WorkOrderList";
 
 export const metadata: Metadata = {
-  title: "Active Work Orders | SolarOps",
+  title: "Active Work Orders | SolarOS",
   description: "View and manage active work orders including new, scheduled, and in-progress field service jobs.",
 };
 

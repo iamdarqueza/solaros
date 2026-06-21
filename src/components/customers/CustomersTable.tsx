@@ -2,7 +2,8 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { customersService, Customer } from "@/services/customersService";
-import { getCustomerStatusBadge, formatDate } from "./CustomerUIHelpers";
+import { formatDate, getPortalStatusBadge } from "./CustomerUIHelpers";
+import AddCustomerModal from "./AddCustomerModal";
 
 type StatusFilter = "all" | Customer["status"];
 type SystemFilter = "all" | Customer["system_type"];
@@ -10,7 +11,7 @@ type SystemFilter = "all" | Customer["system_type"];
 const REGIONS = ["All Regions", "Southern California", "Bay Area", "Southwest", "Texas", "Pacific Northwest", "Southeast", "Central California"];
 
 function CustomerAvatar({ first, last }: { first: string; last: string }) {
-  const initials = `${first[0]}${last[0]}`.toUpperCase();
+  const initials = `${first[0] ?? ""}${last[0] ?? first[1] ?? ""}`.toUpperCase();
   const colors = [
     "from-brand-400 to-brand-600",
     "from-success-400 to-success-600",
@@ -28,6 +29,19 @@ function CustomerAvatar({ first, last }: { first: string; last: string }) {
   );
 }
 
+function getCustomerPortalStatus(customer: Customer): Customer["portal_status"] {
+  if (customer.portal_status) return customer.portal_status;
+  return customer.status === "active" ? "active" : "not_invited";
+}
+
+function formatCustomerType(type: Customer["system_type"]) {
+  return type ? type.charAt(0).toUpperCase() + type.slice(1) : "Residential";
+}
+
+function customerLocation(customer: Customer) {
+  return [customer.city, customer.state].filter(Boolean).join(", ") || customer.address || "Not added";
+}
+
 export default function CustomersTable() {
   const router = useRouter();
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -38,6 +52,8 @@ export default function CustomersTable() {
   const [systemFilter, setSystemFilter] = useState<SystemFilter>("all");
   const [regionFilter, setRegionFilter] = useState("All Regions");
   const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
   const filterRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -59,6 +75,7 @@ export default function CustomersTable() {
           `${c.first_name} ${c.last_name}`.toLowerCase().includes(q) ||
           c.email.toLowerCase().includes(q) ||
           c.phone.includes(q) ||
+          c.city.toLowerCase().includes(q) ||
           c.account_number.toLowerCase().includes(q)
       );
     }
@@ -98,8 +115,22 @@ export default function CustomersTable() {
     setSearch("");
   };
 
+  const handleCustomerCreated = (customer: Customer) => {
+    setCustomers((current) => [customer, ...current]);
+    setShowAddModal(false);
+    setSuccessMessage("Customer added successfully.");
+    window.setTimeout(() => setSuccessMessage(""), 3000);
+  };
+
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-gray-dark">
+    <div className="space-y-3">
+      {successMessage && (
+        <div className="rounded-xl border border-success-200 bg-success-50 px-4 py-3 text-sm font-medium text-success-700 dark:border-success-500/20 dark:bg-success-500/10 dark:text-success-400">
+          {successMessage}
+        </div>
+      )}
+
+      <div className="rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-gray-dark">
       {/* Header */}
       <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between border-b border-gray-100 dark:border-gray-800">
         <div>
@@ -239,6 +270,7 @@ export default function CustomersTable() {
           {/* Add Customer */}
           <button
             id="add-customer-btn"
+            onClick={() => setShowAddModal(true)}
             className="flex items-center gap-2 h-10 rounded-lg bg-brand-500 px-4 text-sm font-medium text-white hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-colors"
           >
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -254,7 +286,7 @@ export default function CustomersTable() {
         <table className="w-full">
           <thead className="sticky top-0 bg-white dark:bg-gray-dark z-10">
             <tr className="border-b border-gray-100 dark:border-gray-800">
-              {["Customer", "Contact", "System", "Installations", "Last Service", "Open Tickets", "Status", ""].map((col) => (
+              {["Customer name", "Customer type", "Email", "Phone", "Location", "Portal status", "Created", "Actions"].map((col) => (
                 <th
                   key={col}
                   className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 first:pl-5 last:pr-5"
@@ -282,11 +314,22 @@ export default function CustomersTable() {
                     <svg className="w-12 h-12 text-gray-300 dark:text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">No customers found</p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                      Try adjusting your search or filters
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {customers.length === 0 ? "No customers yet" : "No customers found"}
                     </p>
-                    {(search || activeFilterCount > 0) && (
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                      {customers.length === 0
+                        ? "Add your first customer to start managing their solar sites, warranties, documents, maintenance, and service history."
+                        : "Try adjusting your search or filters"}
+                    </p>
+                    {customers.length === 0 ? (
+                      <button
+                        onClick={() => setShowAddModal(true)}
+                        className="mt-4 inline-flex h-10 items-center rounded-lg bg-brand-500 px-4 text-sm font-medium text-white transition-colors hover:bg-brand-600"
+                      >
+                        Add Customer
+                      </button>
+                    ) : (search || activeFilterCount > 0) && (
                       <button
                         onClick={clearFilters}
                         className="mt-3 text-sm text-brand-500 hover:text-brand-600 dark:hover:text-brand-400 font-medium"
@@ -319,65 +362,52 @@ export default function CustomersTable() {
                     </div>
                   </td>
 
-                  {/* Contact */}
                   <td className="px-4 py-3.5">
-                    <p className="text-sm text-gray-700 dark:text-gray-300">{customer.email}</p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{customer.phone}</p>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">{formatCustomerType(customer.system_type)}</span>
                   </td>
 
-                  {/* System type */}
                   <td className="px-4 py-3.5">
-                    <div>
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300 capitalize">
-                        {customer.system_type}
-                      </p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{customer.region}</p>
-                    </div>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">{customer.email || "Not added"}</span>
                   </td>
 
-                  {/* Installations */}
                   <td className="px-4 py-3.5">
-                    <div className="flex items-center gap-1.5">
-                      <svg className="w-4 h-4 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
-                      <span className="text-sm font-semibold text-gray-800 dark:text-white/90">
-                        {customer.installations_count}
-                      </span>
-                    </div>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">{customer.phone || "Not added"}</span>
                   </td>
 
-                  {/* Last service */}
                   <td className="px-4 py-3.5">
-                    <span className="text-sm text-gray-600 dark:text-gray-300">
-                      {customer.last_service_date ? formatDate(customer.last_service_date) : "Never"}
-                    </span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">{customerLocation(customer)}</span>
                   </td>
 
-                  {/* Open tickets */}
+                  {/* Portal status */}
+                  <td className="px-4 py-3.5">{getPortalStatusBadge(getCustomerPortalStatus(customer))}</td>
+
                   <td className="px-4 py-3.5">
-                    {customer.open_tickets > 0 ? (
-                      <span className="inline-flex items-center rounded-full bg-warning-50 dark:bg-warning-500/10 px-2.5 py-0.5 text-xs font-medium text-warning-700 dark:text-warning-400">
-                        {customer.open_tickets} open
-                      </span>
-                    ) : (
-                      <span className="text-sm text-gray-400 dark:text-gray-500">—</span>
-                    )}
+                    <span className="text-sm text-gray-600 dark:text-gray-300">{formatDate(customer.created_at)}</span>
                   </td>
 
-                  {/* Status */}
-                  <td className="px-4 py-3.5">{getCustomerStatusBadge(customer.status)}</td>
-
-                  {/* Action arrow */}
                   <td className="px-4 py-3.5 pr-5">
-                    <svg
-                      className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-brand-400 dark:group-hover:text-brand-500 transition-colors"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          router.push(`/customers/${customer.id}`);
+                        }}
+                        className="text-sm font-medium text-brand-500 transition-colors hover:text-brand-600 dark:hover:text-brand-400"
+                      >
+                        View
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          router.push(`/customers/${customer.id}?mode=edit`);
+                        }}
+                        className="text-sm font-medium text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                      >
+                        Edit
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -396,6 +426,13 @@ export default function CustomersTable() {
             Click any row to view profile
           </p>
         </div>
+      )}
+    </div>
+      {showAddModal && (
+        <AddCustomerModal
+          onClose={() => setShowAddModal(false)}
+          onCreated={handleCustomerCreated}
+        />
       )}
     </div>
   );

@@ -1,10 +1,46 @@
 // supportService.ts
-// Mock data layer for Customer Support module.
-// Replace mock functions with real Supabase queries when schema is ready.
+// Customer Support data layer. Uses Supabase first and falls back to local mock data.
 
-export type TicketStatus = 'open' | 'in_progress' | 'waiting_customer' | 'resolved';
+import {
+  addSupportTicketMessageAction,
+  createSupportTicketAction,
+  updateSupportTicketStatusAction,
+} from "@/actions/supportActions";
+import { getSupportStatsFromTickets, getSupportTicketsData } from "@/data/solarosData";
+import { supabase } from "@/lib/supabase";
+
+export type TicketStatus =
+  | 'open'
+  | 'in_progress'
+  | 'waiting_customer'
+  | 'waiting_technician'
+  | 'resolved'
+  | 'closed';
 export type TicketPriority = 'low' | 'medium' | 'high' | 'urgent';
-export type TicketCategory = 'technical' | 'billing' | 'warranty' | 'installation' | 'general' | 'emergency';
+export type TicketIssueType =
+  | 'low_production'
+  | 'inverter_error'
+  | 'battery_issue'
+  | 'panel_damage'
+  | 'cleaning_request'
+  | 'warranty_request'
+  | 'billing_question'
+  | 'document_request'
+  | 'maintenance_request'
+  | 'other';
+
+export const ISSUE_TYPE_OPTIONS: { value: TicketIssueType; label: string }[] = [
+  { value: 'low_production', label: 'Low Production' },
+  { value: 'inverter_error', label: 'Inverter Error' },
+  { value: 'battery_issue', label: 'Battery Issue' },
+  { value: 'panel_damage', label: 'Panel Damage' },
+  { value: 'cleaning_request', label: 'Cleaning Request' },
+  { value: 'warranty_request', label: 'Warranty Request' },
+  { value: 'billing_question', label: 'Billing Question' },
+  { value: 'document_request', label: 'Document Request' },
+  { value: 'maintenance_request', label: 'Maintenance Request' },
+  { value: 'other', label: 'Other' },
+];
 
 export interface TicketAttachment {
   id: string;
@@ -33,17 +69,24 @@ export interface SupportTicket {
   description: string;
   status: TicketStatus;
   priority: TicketPriority;
-  category: TicketCategory;
+  issue_type: TicketIssueType;
   customer_id: string;
   customer_name: string;
   customer_email: string;
   customer_phone: string;
+  site_id: string | null;
+  site_name: string;
+  site_address: string;
+  solar_system_id: string | null;
+  solar_system_name: string;
   system_name: string;
   assigned_agent_id: string | null;
   assigned_agent_name: string | null;
   notes: TicketNote[];
   attachments: TicketAttachment[];
   related_work_order_id: string | null;
+  related_warranty_id: string | null;
+  related_maintenance_visit_id: string | null;
   created_at: string;
   updated_at: string;
   resolved_at: string | null;
@@ -56,7 +99,9 @@ export interface SupportStats {
   open: number;
   in_progress: number;
   waiting_customer: number;
+  waiting_technician: number;
   resolved: number;
+  closed: number;
   avg_resolution_hours: number;
   overdue: number;
 }
@@ -98,12 +143,17 @@ const MOCK_TICKETS: SupportTicket[] = [
     description: 'Hi, my inverter has been showing a red fault light since yesterday afternoon. The app shows "Grid Fault" error. I have not had any power from the panels for over 18 hours. This is urgent as my battery is also draining.',
     status: 'open',
     priority: 'urgent',
-    category: 'technical',
+    issue_type: 'inverter_error',
     customer_id: 'cust-001',
     customer_name: 'Marcus Delgado',
     customer_email: 'marcus.delgado@email.com',
-    customer_phone: '+1 (619) 555-0182',
-    system_name: 'SunPower 22kW Residential Array',
+    customer_phone: '+1 (619) 555-0142',
+    site_id: 'site-001',
+    site_name: 'Delgado Residence',
+    site_address: '4821 Sunset Ridge Dr, San Diego, CA 92103',
+    solar_system_id: 'sys-001',
+    solar_system_name: 'Sunset Ridge 9.6 kW PV',
+    system_name: 'Sunset Ridge 9.6 kW PV',
     assigned_agent_id: null,
     assigned_agent_name: null,
     notes: [
@@ -128,7 +178,9 @@ const MOCK_TICKETS: SupportTicket[] = [
         uploaded_by: 'Marcus Delgado',
       },
     ],
-    related_work_order_id: null,
+    related_work_order_id: 'wo-001',
+    related_warranty_id: null,
+    related_maintenance_visit_id: null,
     created_at: hoursAgo(4),
     updated_at: hoursAgo(2),
     resolved_at: null,
@@ -142,11 +194,16 @@ const MOCK_TICKETS: SupportTicket[] = [
     description: 'I received my invoice for the maintenance visit last month but was charged for 3 hours of labor when the technician was only here for 1.5 hours. Please review and issue a corrected invoice.',
     status: 'open',
     priority: 'medium',
-    category: 'billing',
+    issue_type: 'billing_question',
     customer_id: 'cust-003',
     customer_name: 'James Thornton',
     customer_email: 'jthornton@corporate.net',
     customer_phone: '+1 (480) 555-0561',
+    site_id: 'site-003',
+    site_name: 'Thornton Residence',
+    site_address: '8114 Desert Bloom Ln, Scottsdale, AZ',
+    solar_system_id: 'sys-003',
+    solar_system_name: 'Canadian Solar 15kW Residential Array',
     system_name: 'Canadian Solar 15kW Residential Array',
     assigned_agent_id: 'agent-002',
     assigned_agent_name: 'Omar Khalil',
@@ -173,6 +230,8 @@ const MOCK_TICKETS: SupportTicket[] = [
       },
     ],
     related_work_order_id: 'wo-010',
+    related_warranty_id: null,
+    related_maintenance_visit_id: 'mnt-010',
     created_at: daysAgo(1),
     updated_at: hoursAgo(5),
     resolved_at: null,
@@ -186,17 +245,24 @@ const MOCK_TICKETS: SupportTicket[] = [
     description: 'My system is showing about 30% less output than the same period last year. I have not changed anything on my end. The monitoring app shows all panels are "online" but the numbers don\'t add up. Could there be shading or degradation?',
     status: 'open',
     priority: 'low',
-    category: 'technical',
+    issue_type: 'low_production',
     customer_id: 'cust-009',
     customer_name: 'Kenji Watanabe',
     customer_email: 'kenji.w@personal.com',
     customer_phone: '+1 (408) 555-0772',
+    site_id: 'site-009',
+    site_name: 'Watanabe Residence',
+    site_address: '62 Willow Creek Ct, San Jose, CA',
+    solar_system_id: 'sys-009',
+    solar_system_name: 'LG NeON 15kW New Installation',
     system_name: 'LG NeON 15kW New Installation',
     assigned_agent_id: 'agent-001',
     assigned_agent_name: 'Lena Park',
     notes: [],
     attachments: [],
-    related_work_order_id: null,
+    related_work_order_id: 'wo-006',
+    related_warranty_id: null,
+    related_maintenance_visit_id: null,
     created_at: hoursAgo(1),
     updated_at: hoursAgo(1),
     resolved_at: null,
@@ -212,11 +278,16 @@ const MOCK_TICKETS: SupportTicket[] = [
     description: 'We had a severe hailstorm last week and panel #4 and #11 both have visible cracks. I took photos and need to file a warranty claim. The panels are less than 2 years old.',
     status: 'in_progress',
     priority: 'high',
-    category: 'warranty',
+    issue_type: 'panel_damage',
     customer_id: 'cust-005',
     customer_name: 'Elena Vasquez',
     customer_email: 'evasquez@homemail.com',
     customer_phone: '+1 (503) 555-0447',
+    site_id: 'site-005',
+    site_name: 'Vasquez Residence',
+    site_address: '3901 Maple Terrace, Portland, OR',
+    solar_system_id: 'sys-005',
+    solar_system_name: 'LG NeON 12kW Residential Array',
     system_name: 'LG NeON 12kW Residential Array',
     assigned_agent_id: 'agent-003',
     assigned_agent_name: 'Sofia Ruiz',
@@ -279,6 +350,8 @@ const MOCK_TICKETS: SupportTicket[] = [
       },
     ],
     related_work_order_id: 'wo-005',
+    related_warranty_id: 'war-1042',
+    related_maintenance_visit_id: null,
     created_at: daysAgo(5),
     updated_at: daysAgo(1),
     resolved_at: null,
@@ -289,14 +362,19 @@ const MOCK_TICKETS: SupportTicket[] = [
     id: 'tkt-005',
     ticket_number: 'TKT-2999',
     subject: 'Monitoring app not syncing — data gap for 3 days',
-    description: 'The SolarOps mobile app hasn\'t updated my production data in 3 days. It still shows data from June 10th. My neighbor has the same system and his app works fine. Is this a server issue or my hardware?',
+    description: 'The SolarOS mobile app hasn\'t updated my production data in 3 days. It still shows data from June 10th. My neighbor has the same system and his app works fine. Is this a server issue or my hardware?',
     status: 'in_progress',
     priority: 'medium',
-    category: 'technical',
+    issue_type: 'inverter_error',
     customer_id: 'cust-002',
     customer_name: 'Priya Nair',
     customer_email: 'priya.nair@techco.com',
     customer_phone: '+1 (408) 555-0219',
+    site_id: 'site-002',
+    site_name: 'Nair Commercial Roof',
+    site_address: '455 Innovation Pkwy, Santa Clara, CA',
+    solar_system_id: 'sys-002',
+    solar_system_name: 'First Solar 80kW Commercial Array',
     system_name: 'First Solar 80kW Commercial Array',
     assigned_agent_id: 'agent-001',
     assigned_agent_name: 'Lena Park',
@@ -322,6 +400,8 @@ const MOCK_TICKETS: SupportTicket[] = [
     ],
     attachments: [],
     related_work_order_id: null,
+    related_warranty_id: null,
+    related_maintenance_visit_id: null,
     created_at: daysAgo(2),
     updated_at: hoursAgo(19),
     resolved_at: null,
@@ -337,11 +417,16 @@ const MOCK_TICKETS: SupportTicket[] = [
     description: 'We recently purchased an EV and our power bills have increased significantly. We would like to explore upgrading our solar system. Please send us a quote for doubling our capacity and adding battery storage.',
     status: 'waiting_customer',
     priority: 'low',
-    category: 'installation',
+    issue_type: 'other',
     customer_id: 'cust-006',
     customer_name: 'Richard Chen',
     customer_email: 'rchen@techventures.io',
     customer_phone: '+1 (510) 555-0623',
+    site_id: 'site-006',
+    site_name: 'Chen Ventures HQ',
+    site_address: '1776 Harbor Bay Pkwy, Alameda, CA',
+    solar_system_id: 'sys-006',
+    solar_system_name: 'SolarEdge 45kW Commercial Array',
     system_name: 'SolarEdge 45kW Commercial Array',
     assigned_agent_id: 'agent-004',
     assigned_agent_name: 'James Wei',
@@ -387,6 +472,8 @@ const MOCK_TICKETS: SupportTicket[] = [
       },
     ],
     related_work_order_id: null,
+    related_warranty_id: null,
+    related_maintenance_visit_id: null,
     created_at: daysAgo(7),
     updated_at: daysAgo(4),
     resolved_at: null,
@@ -398,13 +485,18 @@ const MOCK_TICKETS: SupportTicket[] = [
     ticket_number: 'TKT-2997',
     subject: 'Roof replacement — need panels removed and reinstalled',
     description: 'My roofer says I need to replace the roof before winter and the solar panels need to be removed first. Can you provide a quote for panel removal and reinstallation after the roof work is done?',
-    status: 'waiting_customer',
+    status: 'waiting_technician',
     priority: 'medium',
-    category: 'installation',
+    issue_type: 'maintenance_request',
     customer_id: 'cust-007',
     customer_name: 'Fatima Al-Hassan',
     customer_email: 'fatima.alhassan@gmail.com',
     customer_phone: '+1 (305) 555-0882',
+    site_id: 'site-007',
+    site_name: 'Al-Hassan Residence',
+    site_address: '204 Ocean Grove Ave, Miami, FL',
+    solar_system_id: 'sys-007',
+    solar_system_name: 'Panasonic EverVolt 18kW Array',
     system_name: 'Panasonic EverVolt 18kW Array',
     assigned_agent_id: 'agent-004',
     assigned_agent_name: 'James Wei',
@@ -430,6 +522,8 @@ const MOCK_TICKETS: SupportTicket[] = [
     ],
     attachments: [],
     related_work_order_id: null,
+    related_warranty_id: null,
+    related_maintenance_visit_id: 'mnt-022',
     created_at: daysAgo(8),
     updated_at: daysAgo(6),
     resolved_at: null,
@@ -445,11 +539,16 @@ const MOCK_TICKETS: SupportTicket[] = [
     description: 'I have tried to reset my password three times but I never receive the email. I need to access my monitoring data for my HOA report.',
     status: 'resolved',
     priority: 'low',
-    category: 'general',
+    issue_type: 'document_request',
     customer_id: 'cust-004',
     customer_name: 'Amara Osei',
     customer_email: 'amara.osei@business.com',
     customer_phone: '+1 (702) 555-0341',
+    site_id: 'site-004',
+    site_name: 'Osei Business Campus',
+    site_address: '9005 Summerlin Center Dr, Las Vegas, NV',
+    solar_system_id: 'sys-004',
+    solar_system_name: 'Trina Solar 60kW + Powerwall Array',
     system_name: 'Trina Solar 60kW + Powerwall Array',
     assigned_agent_id: 'agent-002',
     assigned_agent_name: 'Omar Khalil',
@@ -484,6 +583,8 @@ const MOCK_TICKETS: SupportTicket[] = [
     ],
     attachments: [],
     related_work_order_id: null,
+    related_warranty_id: null,
+    related_maintenance_visit_id: null,
     created_at: daysAgo(12),
     updated_at: daysAgo(10),
     resolved_at: daysAgo(10),
@@ -497,11 +598,16 @@ const MOCK_TICKETS: SupportTicket[] = [
     description: 'I would like to schedule my annual maintenance service. My last visit was in June 2024. Can you confirm the scope of work and availability for late June 2025?',
     status: 'resolved',
     priority: 'low',
-    category: 'general',
+    issue_type: 'maintenance_request',
     customer_id: 'cust-008',
     customer_name: 'Roberto Morales',
     customer_email: 'roberto.morales@farmco.com',
     customer_phone: '+1 (559) 555-0314',
+    site_id: 'site-008',
+    site_name: 'Morales Farm Shop',
+    site_address: '1182 County Road 14, Fresno, CA',
+    solar_system_id: 'sys-008',
+    solar_system_name: 'Jinko Solar Tiger 30kW Array',
     system_name: 'Jinko Solar Tiger 30kW Array',
     assigned_agent_id: 'agent-003',
     assigned_agent_name: 'Sofia Ruiz',
@@ -518,6 +624,8 @@ const MOCK_TICKETS: SupportTicket[] = [
     ],
     attachments: [],
     related_work_order_id: 'wo-008',
+    related_warranty_id: null,
+    related_maintenance_visit_id: 'mnt-008',
     created_at: daysAgo(16),
     updated_at: daysAgo(14),
     resolved_at: daysAgo(14),
@@ -530,26 +638,49 @@ const MOCK_TICKETS: SupportTicket[] = [
 
 export const supportService = {
   async getAllTickets(): Promise<SupportTicket[]> {
-    await new Promise((r) => setTimeout(r, 400));
+    try {
+      const tickets = await getSupportTicketsData();
+      if (tickets.length > 0) return tickets;
+    } catch (error) {
+      console.warn('Falling back to mock support tickets:', error);
+    }
     return [...MOCK_TICKETS].sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
   },
 
   async getTicket(id: string): Promise<SupportTicket | null> {
-    await new Promise((r) => setTimeout(r, 250));
+    try {
+      const tickets = await getSupportTicketsData();
+      const ticket = tickets.find((t) => t.id === id);
+      if (ticket) return ticket;
+    } catch (error) {
+      console.warn('Falling back to mock support ticket:', error);
+    }
     return MOCK_TICKETS.find((t) => t.id === id) ?? null;
   },
 
   async getByStatus(status: TicketStatus): Promise<SupportTicket[]> {
-    await new Promise((r) => setTimeout(r, 300));
+    try {
+      const tickets = await getSupportTicketsData();
+      if (tickets.length > 0) {
+        return tickets.filter((t) => t.status === status);
+      }
+    } catch (error) {
+      console.warn('Falling back to mock support status filter:', error);
+    }
     return MOCK_TICKETS.filter((t) => t.status === status).sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
   },
 
   async getStats(): Promise<SupportStats> {
-    await new Promise((r) => setTimeout(r, 250));
+    try {
+      const tickets = await getSupportTicketsData();
+      if (tickets.length > 0) return getSupportStatsFromTickets(tickets);
+    } catch (error) {
+      console.warn('Falling back to mock support stats:', error);
+    }
     const tickets = MOCK_TICKETS;
     const resolved = tickets.filter((t) => t.status === 'resolved' && t.resolved_at && t.created_at);
     const avgHours =
@@ -566,7 +697,9 @@ export const supportService = {
       open: tickets.filter((t) => t.status === 'open').length,
       in_progress: tickets.filter((t) => t.status === 'in_progress').length,
       waiting_customer: tickets.filter((t) => t.status === 'waiting_customer').length,
+      waiting_technician: tickets.filter((t) => t.status === 'waiting_technician').length,
       resolved: tickets.filter((t) => t.status === 'resolved').length,
+      closed: tickets.filter((t) => t.status === 'closed').length,
       avg_resolution_hours: Math.round(avgHours * 10) / 10,
       overdue: tickets.filter(
         (t) =>
@@ -580,7 +713,29 @@ export const supportService = {
   async createTicket(
     data: Omit<SupportTicket, 'id' | 'ticket_number' | 'created_at' | 'updated_at' | 'notes' | 'attachments'>
   ): Promise<SupportTicket> {
-    await new Promise((r) => setTimeout(r, 500));
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (accessToken) {
+        return await createSupportTicketAction({
+          accessToken,
+          subject: data.subject,
+          description: data.description,
+          customer_name: data.customer_name,
+          customer_email: data.customer_email,
+          customer_phone: data.customer_phone,
+          site_name: data.site_name,
+          site_address: data.site_address,
+          solar_system_name: data.solar_system_name,
+          issue_type: data.issue_type,
+          priority: data.priority,
+          assigned_agent_id: data.assigned_agent_id,
+        });
+      }
+    } catch (error) {
+      console.warn('Falling back to local support ticket create:', error);
+    }
+
     const ticket: SupportTicket = {
       ...data,
       id: `tkt-${Date.now()}`,
@@ -607,12 +762,25 @@ export const supportService = {
   },
 
   async updateStatus(id: string, status: TicketStatus): Promise<SupportTicket> {
-    await new Promise((r) => setTimeout(r, 300));
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (accessToken) {
+        await updateSupportTicketStatusAction(accessToken, id, status);
+        const ticket = await this.getTicket(id);
+        if (ticket) return ticket;
+      }
+    } catch (error) {
+      console.warn('Falling back to local support status update:', error);
+    }
+
     const idx = MOCK_TICKETS.findIndex((t) => t.id === id);
     if (idx === -1) throw new Error('Ticket not found');
     const updates: Partial<SupportTicket> = { status, updated_at: new Date().toISOString() };
     if (status === 'resolved') {
       updates.resolved_at = new Date().toISOString();
+    } else if (status === 'open' || status === 'in_progress') {
+      updates.resolved_at = null;
     }
     MOCK_TICKETS[idx] = { ...MOCK_TICKETS[idx], ...updates };
     return MOCK_TICKETS[idx];
@@ -636,7 +804,18 @@ export const supportService = {
     id: string,
     note: Omit<TicketNote, 'id'>
   ): Promise<SupportTicket> {
-    await new Promise((r) => setTimeout(r, 350));
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (accessToken) {
+        await addSupportTicketMessageAction(accessToken, id, note.content, note.is_internal);
+        const ticket = await this.getTicket(id);
+        if (ticket) return ticket;
+      }
+    } catch (error) {
+      console.warn('Falling back to local support note:', error);
+    }
+
     const idx = MOCK_TICKETS.findIndex((t) => t.id === id);
     if (idx === -1) throw new Error('Ticket not found');
     const newNote: TicketNote = { ...note, id: `note-${Date.now()}` };

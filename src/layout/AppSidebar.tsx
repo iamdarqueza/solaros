@@ -12,13 +12,12 @@ import {
   CalenderIcon,
   BoltIcon,
   GroupIcon,
-  PieChartIcon,
   TaskIcon,
   ChatIcon,
-  PageIcon,
   PlugInIcon,
-  ShootingStarIcon,
-  FolderIcon,
+  PieChartIcon,
+  DocsIcon,
+  UserCircleIcon,
 } from "../icons/index";
 import SidebarWidget from "./SidebarWidget";
 
@@ -38,21 +37,20 @@ const navItems: NavItem[] = [
   {
     icon: <GroupIcon />,
     name: "Customers",
-    subItems: [
-      { name: "Customer List", path: "/customers", pro: false },
-    ],
-  },
-  {
-    icon: <ShootingStarIcon />,
-    name: "Solar Systems",
-    subItems: [
-      { name: "Installations", path: "/solar-systems/installations", pro: false },
-      { name: "Equipment", path: "/solar-systems/equipment", pro: false },
-      { name: "Sites", path: "/solar-systems/sites", pro: false },
-    ],
+    path: "/customers",
   },
   {
     icon: <BoxCubeIcon />,
+    name: "Sites & Systems",
+    subItems: [
+      { name: "Sites", path: "/sites", pro: false },
+      { name: "Solar Systems", path: "/solar-systems", pro: false },
+      { name: "Equipment", path: "/equipment", pro: false },
+      { name: "Installations", path: "/installations", pro: false },
+    ],
+  },
+  {
+    icon: <TaskIcon />,
     name: "Warranty Management",
     subItems: [
       { name: "Active Warranties", path: "/warranties/active", pro: false },
@@ -64,8 +62,17 @@ const navItems: NavItem[] = [
     icon: <CalenderIcon />,
     name: "Maintenance",
     subItems: [
-      { name: "Maintenance Schedule", path: "/maintenance/schedule", pro: false },
-      { name: "Recurring Plans", path: "/maintenance/plans", pro: false },
+      { name: "Calendar", path: "/maintenance/schedule", pro: false },
+      { name: "Maintenance Plans", path: "/maintenance/plans", pro: false },
+      { name: "Maintenance Visits", path: "/maintenance/visits", pro: false },
+    ],
+  },
+  {
+    icon: <ChatIcon />,
+    name: "Support",
+    subItems: [
+      { name: "Tickets", path: "/support/tickets", pro: false },
+      { name: "Customer Requests", path: "/support/requests", pro: false },
     ],
   },
   {
@@ -73,31 +80,21 @@ const navItems: NavItem[] = [
     name: "Work Orders",
     subItems: [
       { name: "Active Jobs", path: "/work-orders/active", pro: false },
+      { name: "Scheduled Jobs", path: "/work-orders/scheduled", pro: false },
       { name: "Completed Jobs", path: "/work-orders/completed", pro: false },
     ],
   },
   {
-    icon: <ChatIcon />,
-    name: "Support",
-    subItems: [
-      { name: "All Tickets", path: "/support/tickets", pro: false },
-    ],
-  },
-  {
-    icon: <TaskIcon />,
+    icon: <GroupIcon />,
     name: "Technicians",
     subItems: [
-      { name: "Team", path: "/technicians/team", pro: false },
+      { name: "Team", path: "/technicians", pro: false },
       { name: "Assignments", path: "/technicians/assignments", pro: false },
+      { name: "Availability", path: "/technicians/availability", pro: false },
     ],
   },
   {
-    icon: <TaskIcon />,
-    name: "Technician Portal",
-    path: "/technician/today",
-  },
-  {
-    icon: <FolderIcon />,
+    icon: <DocsIcon />,
     name: "Documents",
     path: "/documents",
   },
@@ -107,12 +104,17 @@ const navItems: NavItem[] = [
     path: "/reports",
   },
   {
-    icon: <PlugInIcon />,
+    icon: <UserCircleIcon />,
     name: "Customer Portal",
     path: "/portal",
   },
   {
-    icon: <PageIcon />,
+    icon: <PlugInIcon />,
+    name: "Technician Portal",
+    path: "/technician/today",
+  },
+  {
+    icon: <TaskIcon />,
     name: "Settings",
     path: "/settings",
   },
@@ -208,7 +210,7 @@ const AppSidebar: React.FC = () => {
                     <Link
                       href={subItem.path}
                       className={`menu-dropdown-item ${
-                        isActive(subItem.path)
+                        isSubItemActive(subItem.path)
                           ? "menu-dropdown-item-active"
                           : "menu-dropdown-item-inactive"
                       }`}
@@ -218,7 +220,7 @@ const AppSidebar: React.FC = () => {
                         {subItem.new && (
                           <span
                             className={`ml-auto ${
-                              isActive(subItem.path)
+                              isSubItemActive(subItem.path)
                                 ? "menu-dropdown-badge-active"
                                 : "menu-dropdown-badge-inactive"
                             } menu-dropdown-badge `}
@@ -229,7 +231,7 @@ const AppSidebar: React.FC = () => {
                         {subItem.pro && (
                           <span
                             className={`ml-auto ${
-                              isActive(subItem.path)
+                              isSubItemActive(subItem.path)
                                 ? "menu-dropdown-badge-active"
                                 : "menu-dropdown-badge-inactive"
                             } menu-dropdown-badge `}
@@ -258,8 +260,16 @@ const AppSidebar: React.FC = () => {
   );
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  // const isActive = (path: string) => path === pathname;
-   const isActive = useCallback((path: string) => path === pathname, [pathname]);
+  const isActive = useCallback((path: string) => {
+    if (path === "/") return pathname === "/";
+    return pathname === path || pathname.startsWith(`${path}/`);
+  }, [pathname]);
+
+  const isSubItemActive = useCallback((path: string) => {
+    if (pathname === path) return true;
+    if (path === "/technicians") return false;
+    return pathname.startsWith(`${path}/`);
+  }, [pathname]);
 
   useEffect(() => {
     // Check if the current path matches any submenu item
@@ -267,7 +277,7 @@ const AppSidebar: React.FC = () => {
     navItems.forEach((nav, index) => {
       if (nav.subItems) {
         nav.subItems.forEach((subItem) => {
-          if (isActive(subItem.path)) {
+          if (isSubItemActive(subItem.path)) {
             setOpenSubmenu({
               type: "main",
               index,
@@ -282,7 +292,7 @@ const AppSidebar: React.FC = () => {
     if (!submenuMatched) {
       setOpenSubmenu(null);
     }
-  }, [pathname,isActive]);
+  }, [pathname, isSubItemActive]);
 
   useEffect(() => {
     // Set the height of the submenu items when the submenu is opened

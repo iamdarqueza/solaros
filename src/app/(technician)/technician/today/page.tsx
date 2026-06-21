@@ -1,12 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useTech } from "@/app/(technician)/layout";
+import { useTech } from "@/components/technician/TechContext";
 import TechProfileSwitcher from "@/components/technician/TechProfileSwitcher";
 import {
   technicianPortalService,
   type WorkOrder,
-  type MaintenanceRecord,
 } from "@/services/technicianPortalService";
 
 /* ── Priority colors ────────────────────────────────────────────────────── */
@@ -22,7 +21,9 @@ function priorityColor(p: string) {
 function statusLabel(s: string) {
   switch (s) {
     case "in_progress": return "In Progress";
+    case "assigned":    return "Assigned";
     case "scheduled":   return "Scheduled";
+    case "requires_follow_up": return "Follow-up";
     case "new":         return "Unassigned";
     default:            return s;
   }
@@ -30,12 +31,14 @@ function statusLabel(s: string) {
 
 function typeIcon(t: string) {
   switch (t) {
-    case "installation": return "🔧";
-    case "repair":       return "⚡";
-    case "inspection":   return "🔍";
     case "cleaning":     return "🧹";
-    case "warranty":     return "🛡️";
-    case "emergency":    return "🚨";
+    case "inspection":   return "🔍";
+    case "repair":       return "⚡";
+    case "replacement":  return "♻️";
+    case "warranty_service": return "♻️";
+    case "maintenance":  return "🗓️";
+    case "installation_follow_up": return "🔧";
+    case "emergency_visit": return "🚨";
     default:             return "📋";
   }
 }
@@ -144,53 +147,14 @@ function TodayJobCard({ job }: { job: WorkOrder }) {
           </div>
           <p className="text-xs text-white/40 mt-0.5 truncate">{job.customer_name}</p>
           <p className="text-xs text-white/30 mt-0.5 truncate">📍 {job.site_address}</p>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md uppercase" style={{ background: `${color}18`, color }}>
+              {statusLabel(job.status)}
+            </span>
+            <span className="text-xs text-white/25 truncate">From: {job.source_label}</span>
+          </div>
         </div>
         <svg className="w-4 h-4 text-white/20 shrink-0 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-        </svg>
-      </div>
-    </Link>
-  );
-}
-
-/* ── Task Card ───────────────────────────────────────────────────────────── */
-function TaskCard({ task }: { task: MaintenanceRecord }) {
-  const done = task.checklist.filter((c) => c.done).length;
-  const total = task.checklist.length;
-  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-  const isOverdue = task.status === "overdue";
-
-  return (
-    <Link href={`/technician/tasks/${task.id}`}>
-      <div
-        className="flex items-center gap-3 p-3.5 rounded-xl mb-2.5 transition-all active:scale-[0.98]"
-        style={{
-          background: isOverdue ? "rgba(239,68,68,0.06)" : "rgba(255,255,255,0.04)",
-          border: `1px solid ${isOverdue ? "rgba(239,68,68,0.2)" : "rgba(255,255,255,0.06)"}`,
-        }}
-      >
-        {/* Ring */}
-        <div className="relative w-10 h-10 shrink-0">
-          <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-            <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="3" />
-            <circle
-              cx="18" cy="18" r="15" fill="none"
-              stroke={isOverdue ? "#ef4444" : "#f59e0b"} strokeWidth="3"
-              strokeDasharray={`${(pct / 100) * 94.2} 94.2`}
-              strokeLinecap="round"
-            />
-          </svg>
-          <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-white">{pct}%</span>
-        </div>
-        {/* Info */}
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-white truncate">{task.customer_name}</p>
-          <p className="text-xs text-white/40 truncate">{task.system_name}</p>
-          <p className="text-xs mt-0.5" style={{ color: isOverdue ? "#ef4444" : "rgba(255,255,255,0.35)" }}>
-            {isOverdue ? "⚠️ Overdue · " : "🗓 "}{task.scheduled_date}
-          </p>
-        </div>
-        <svg className="w-4 h-4 text-white/20 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
         </svg>
       </div>
@@ -202,10 +166,10 @@ function TaskCard({ task }: { task: MaintenanceRecord }) {
 export default function TodayPage() {
   const { profile } = useTech();
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({ todayJobs: 0, activeJob: false, pendingTasks: 0, overdueTasks: 0, completedThisWeek: 0 });
+  const [stats, setStats] = useState({ todayJobs: 0, activeJob: false, priorityJobs: 0, openJobs: 0, completedThisWeek: 0 });
   const [activeJob, setActiveJob] = useState<WorkOrder | null>(null);
   const [todayJobs, setTodayJobs] = useState<WorkOrder[]>([]);
-  const [pendingTasks, setPendingTasks] = useState<MaintenanceRecord[]>([]);
+  const [priorityJobs, setPriorityJobs] = useState<WorkOrder[]>([]);
 
   const now = new Date();
   const greeting = now.getHours() < 12 ? "Good morning" : now.getHours() < 17 ? "Good afternoon" : "Good evening";
@@ -214,16 +178,16 @@ export default function TodayPage() {
   useEffect(() => {
     async function load() {
       setLoading(true);
-      const [s, aj, tj, pt] = await Promise.all([
+      const [s, aj, tj, pj] = await Promise.all([
         technicianPortalService.getDashboardStats(profile.id),
         technicianPortalService.getActiveJob(profile.id),
         technicianPortalService.getTodaysJobs(profile.id),
-        technicianPortalService.getPendingTasks(profile.id),
+        technicianPortalService.getPriorityJobs(profile.id),
       ]);
       setStats(s);
       setActiveJob(aj);
       setTodayJobs(tj.filter((j) => j.status !== "in_progress"));
-      setPendingTasks(pt.slice(0, 3));
+      setPriorityJobs(pj.filter((j) => j.status !== "in_progress").slice(0, 3));
       setLoading(false);
     }
     load();
@@ -253,10 +217,10 @@ export default function TodayPage() {
 
           {/* Stats */}
           <div className="grid grid-cols-2 gap-3 mb-6">
-            <StatCard label="Today" value={stats.todayJobs} sub="work orders" accent="#3b82f6" icon="📋" />
-            <StatCard label="Tasks" value={stats.pendingTasks} sub={stats.overdueTasks > 0 ? `${stats.overdueTasks} overdue` : "all on track"} accent={stats.overdueTasks > 0 ? "#ef4444" : "#10b981"} icon="✅" />
+            <StatCard label="Today" value={stats.todayJobs} sub="scheduled jobs" accent="#3b82f6" icon="📋" />
+            <StatCard label="Priority" value={stats.priorityJobs} sub="urgent or high" accent={stats.priorityJobs > 0 ? "#ef4444" : "#10b981"} icon="⚡" />
             <StatCard label="This Week" value={stats.completedThisWeek} sub="completed" accent="#10b981" icon="🏆" />
-            <StatCard label="Pipeline" value={stats.pendingTasks + stats.todayJobs} sub="open items" accent="#f59e0b" icon="⚡" />
+            <StatCard label="Open" value={stats.openJobs} sub="assigned jobs" accent="#f59e0b" icon="🧰" />
           </div>
 
           {/* Today's Schedule */}
@@ -278,22 +242,22 @@ export default function TodayPage() {
             )}
           </div>
 
-          {/* Pending Tasks */}
+          {/* Priority Jobs */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-bold text-white uppercase tracking-wider">Pending Tasks</h2>
-              <Link href="/technician/tasks" className="text-xs text-amber-400 font-medium">View all →</Link>
+              <h2 className="text-sm font-bold text-white uppercase tracking-wider">Priority Jobs</h2>
+              <Link href="/technician/jobs" className="text-xs text-amber-400 font-medium">View all →</Link>
             </div>
-            {pendingTasks.length === 0 ? (
+            {priorityJobs.length === 0 ? (
               <div
                 className="rounded-2xl p-6 text-center"
                 style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}
               >
                 <p className="text-2xl mb-2">✨</p>
-                <p className="text-sm text-white/50">No pending maintenance tasks</p>
+                <p className="text-sm text-white/50">No urgent or high-priority jobs</p>
               </div>
             ) : (
-              pendingTasks.map((t) => <TaskCard key={t.id} task={t} />)
+              priorityJobs.map((j) => <TodayJobCard key={j.id} job={j} />)
             )}
           </div>
         </>

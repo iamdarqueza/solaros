@@ -295,7 +295,7 @@ drop trigger if exists set_customer_portal_access_updated_at on public.customer_
 create trigger set_customer_portal_access_updated_at
 before update on public.customer_portal_access
 for each row execute function public.set_updated_at();
-
+-- where i end start at line 299--
 -- SITES / INSTALLATIONS / SOLAR SYSTEMS / EQUIPMENT
 
 create table if not exists public.sites (

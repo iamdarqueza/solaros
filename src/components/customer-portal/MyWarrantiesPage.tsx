@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import Link from "next/link";
 import { useCustomerPortal } from "@/app/(customer)/layout";
 import { customerPortalService, type Warranty } from "@/services/customerPortalService";
 
@@ -97,7 +98,7 @@ export default function MyWarrantiesPage() {
       setWarranties(data);
       setLoading(false);
     });
-  }, [customer?.id]);
+  }, [customer]);
 
   if (loading) {
     return (
@@ -144,6 +145,12 @@ export default function MyWarrantiesPage() {
         <p className="text-xs text-blue-700">
           Your warranties protect your solar panels, inverters, and mounting hardware against defects and performance degradation. Contact us if you need to make a claim.
         </p>
+        <Link
+          href="/portal/documents"
+          className="mt-3 inline-flex rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-blue-700 ring-1 ring-blue-200 hover:bg-blue-100"
+        >
+          View warranty documents
+        </Link>
       </div>
 
       {warranties.length === 0 ? (

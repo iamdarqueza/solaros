@@ -34,7 +34,10 @@ function AlertBar({ warranty }: { warranty: Warranty }) {
           {getWarrantyTypeBadge(warranty.warranty_type)}
         </div>
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
-          {warranty.customer_name} · {warranty.manufacturer} · {warranty.serial_number}
+          {warranty.customer_name} · {warranty.site_name} · {warranty.supplier}
+        </p>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 truncate">
+          {warranty.manufacturer} · {warranty.serial_number}
         </p>
       </div>
 

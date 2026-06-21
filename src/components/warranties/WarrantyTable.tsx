@@ -48,8 +48,11 @@ export default function WarrantyTable({
         (w) =>
           w.product.toLowerCase().includes(q) ||
           w.manufacturer.toLowerCase().includes(q) ||
+          w.supplier.toLowerCase().includes(q) ||
           w.serial_number.toLowerCase().includes(q) ||
-          w.customer_name.toLowerCase().includes(q)
+          w.customer_name.toLowerCase().includes(q) ||
+          w.site_name.toLowerCase().includes(q) ||
+          w.solar_system_name.toLowerCase().includes(q)
       );
     }
     if (statusFilter !== "all") result = result.filter((w) => w.status === statusFilter);
@@ -178,7 +181,7 @@ export default function WarrantyTable({
                 <div>
                   <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Type</label>
                   <div className="mt-2 flex flex-wrap gap-1.5">
-                    {(["all", "equipment", "labor", "performance", "comprehensive"] as const).map((t) => (
+                    {(["all", "manufacturer", "labor", "installation", "performance", "battery", "inverter", "panel"] as const).map((t) => (
                       <button
                         key={t}
                         onClick={() => setTypeFilter(t)}
@@ -188,7 +191,7 @@ export default function WarrantyTable({
                             : "border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5"
                         }`}
                       >
-                        {t.charAt(0).toUpperCase() + t.slice(1)}
+                        {t === "all" ? "All" : t.split("_").map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ")}
                       </button>
                     ))}
                   </div>
@@ -215,7 +218,7 @@ export default function WarrantyTable({
         <table className="w-full">
           <thead className="sticky top-0 bg-white dark:bg-gray-dark z-10">
             <tr className="border-b border-gray-100 dark:border-gray-800">
-              {["Product", "Manufacturer / Serial", "Type", "Warranty Period", "Status", "Time Left", "Claims", ""].map((col) => (
+              {["Warranty", "Manufacturer / Supplier", "Linked Site / System", "Type", "Warranty Period", "Status", "Time Left", "Claims", ""].map((col) => (
                 <th
                   key={col}
                   className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 first:pl-5 last:pr-5"
@@ -229,7 +232,7 @@ export default function WarrantyTable({
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i} className="animate-pulse">
-                  {Array.from({ length: 8 }).map((_, j) => (
+                  {Array.from({ length: 9 }).map((_, j) => (
                     <td key={j} className="px-4 py-4 first:pl-5 last:pr-5">
                       <div className="h-4 rounded bg-gray-100 dark:bg-gray-800" />
                     </td>
@@ -238,7 +241,7 @@ export default function WarrantyTable({
               ))
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-16 text-center">
+                <td colSpan={9} className="py-16 text-center">
                   <div className="flex flex-col items-center">
                     <svg className="w-12 h-12 text-gray-300 dark:text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -264,19 +267,23 @@ export default function WarrantyTable({
                   <td className="px-4 py-3.5 pl-5">
                     <div className="flex items-center gap-3">
                       <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${
-                        warranty.warranty_type === "equipment"
+                        warranty.warranty_type === "panel" || warranty.warranty_type === "manufacturer"
                           ? "bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                          : warranty.warranty_type === "inverter"
+                          ? "bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400"
                           : warranty.warranty_type === "labor"
                           ? "bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400"
                           : warranty.warranty_type === "performance"
                           ? "bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400"
+                          : warranty.warranty_type === "installation"
+                          ? "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
                           : "bg-success-50 dark:bg-success-500/10 text-success-600 dark:text-success-400"
                       }`}>
-                        {warranty.warranty_type === "equipment" ? (
+                        {warranty.warranty_type === "panel" || warranty.warranty_type === "manufacturer" ? (
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18" />
                           </svg>
-                        ) : warranty.warranty_type === "labor" ? (
+                        ) : warranty.warranty_type === "labor" || warranty.warranty_type === "installation" ? (
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                           </svg>
@@ -301,10 +308,18 @@ export default function WarrantyTable({
                     </div>
                   </td>
 
-                  {/* Manufacturer / Serial */}
+                  {/* Manufacturer / Supplier */}
                   <td className="px-4 py-3.5">
                     <p className="text-sm text-gray-700 dark:text-gray-300">{warranty.manufacturer}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{warranty.supplier}</p>
                     <p className="text-xs font-mono text-gray-400 dark:text-gray-500 mt-0.5">{warranty.serial_number}</p>
+                  </td>
+
+                  {/* Linked Site / System */}
+                  <td className="px-4 py-3.5">
+                    <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-1">{warranty.site_name}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 line-clamp-1">{warranty.solar_system_name}</p>
+                    <p className="text-xs font-mono text-gray-400 dark:text-gray-500 mt-0.5">{warranty.installation_id}</p>
                   </td>
 
                   {/* Type */}

@@ -5,7 +5,7 @@ import WarrantyTable from "@/components/warranties/WarrantyTable";
 import ExpiringWarrantyAlerts from "@/components/warranties/ExpiringWarrantyAlerts";
 
 export const metadata: Metadata = {
-  title: "Expiring Warranties | SolarOps",
+  title: "Expiring Warranties | SolarOS",
   description: "Monitor solar warranties expiring soon and take proactive action before they lapse.",
 };
 

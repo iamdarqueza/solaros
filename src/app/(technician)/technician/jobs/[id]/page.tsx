@@ -3,6 +3,7 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { workOrderService, type WorkOrder, type WorkOrderStatus, type ServiceReport } from "@/services/workOrderService";
+import { technicianPortalService } from "@/services/technicianPortalService";
 
 function priorityColor(p: string) {
   switch (p) {
@@ -15,12 +16,14 @@ function priorityColor(p: string) {
 
 function typeIcon(t: string) {
   switch (t) {
-    case "installation": return "🔧";
-    case "repair":       return "⚡";
-    case "inspection":   return "🔍";
     case "cleaning":     return "🧹";
-    case "warranty":     return "🛡️";
-    case "emergency":    return "🚨";
+    case "inspection":   return "🔍";
+    case "repair":       return "⚡";
+    case "replacement":  return "♻️";
+    case "warranty_service": return "♻️";
+    case "maintenance":  return "🗓️";
+    case "installation_follow_up": return "🔧";
+    case "emergency_visit": return "🚨";
     default:             return "📋";
   }
 }
@@ -102,7 +105,7 @@ interface PhotoEntry {
   caption: string;
 }
 
-function PhotoUploadPanel({ jobId, disabled }: { jobId: string; disabled: boolean }) {
+function PhotoUploadPanel({ jobId, disabled, label }: { jobId: string; disabled: boolean; label: string }) {
   const [photos, setPhotos] = useState<PhotoEntry[]>([]);
   const [uploading, setUploading] = useState(false);
   const [captionInputs, setCaptionInputs] = useState<Record<string, string>>({});
@@ -145,12 +148,13 @@ function PhotoUploadPanel({ jobId, disabled }: { jobId: string; disabled: boolea
           }}
         >
           <span className="text-2xl">📷</span>
-          <span className="text-sm font-semibold text-amber-400">Add Photo</span>
+          <span className="text-sm font-semibold text-amber-400">{label}</span>
           <span className="text-xs text-white/30">Tap to capture or choose from gallery</span>
         </button>
       )}
       <input
         ref={fileRef}
+        id={`${jobId}-${label.replaceAll(" ", "-").toLowerCase()}`}
         type="file"
         accept="image/*"
         capture="environment"
@@ -176,7 +180,7 @@ function PhotoUploadPanel({ jobId, disabled }: { jobId: string; disabled: boolea
               style={{ border: "1px solid rgba(255,255,255,0.08)" }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={p.dataUrl} alt="Site photo" className="w-full h-48 object-cover" />
+              <img src={p.dataUrl} alt={`${label} mock upload`} className="w-full h-48 object-cover" />
               <div className="p-3">
                 <input
                   type="text"
@@ -281,8 +285,10 @@ function CompletionReportForm({
 /* ── Status Steps ──────────────────────────────────────────────────────── */
 function StatusStepper({ status, onUpdate }: { status: WorkOrderStatus; onUpdate: (s: WorkOrderStatus) => void }) {
   const steps: { key: WorkOrderStatus; label: string; color: string }[] = [
+    { key: "assigned", label: "Assigned", color: "#8b5cf6" },
     { key: "scheduled", label: "Scheduled", color: "#3b82f6" },
     { key: "in_progress", label: "In Progress", color: "#f59e0b" },
+    { key: "requires_follow_up", label: "Follow-up", color: "#f43f5e" },
     { key: "completed", label: "Completed", color: "#10b981" },
   ];
   const idx = steps.findIndex((s) => s.key === status);
@@ -329,6 +335,32 @@ function Section({ title, icon, children }: { title: string; icon: string; child
   );
 }
 
+function MockActionButton({
+  label,
+  onClick,
+  tone = "default",
+}: {
+  label: string;
+  onClick: () => void;
+  tone?: "default" | "primary" | "success";
+}) {
+  const styles = {
+    default: { background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.72)", border: "1px solid rgba(255,255,255,0.08)" },
+    primary: { background: "linear-gradient(135deg, #f59e0b, #d97706)", color: "#000", border: "1px solid rgba(245,158,11,0.4)" },
+    success: { background: "rgba(16,185,129,0.12)", color: "#10b981", border: "1px solid rgba(16,185,129,0.25)" },
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      className="rounded-xl px-3 py-2.5 text-xs font-bold transition-all active:scale-[0.97]"
+      style={styles[tone]}
+    >
+      {label}
+    </button>
+  );
+}
+
 /* ── Page ──────────────────────────────────────────────────────────────── */
 export default function JobDetailPage() {
   const params = useParams();
@@ -337,24 +369,19 @@ export default function JobDetailPage() {
   const [job, setJob] = useState<WorkOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [checklist, setChecklist] = useState<{ id: string; label: string; done: boolean }[]>([]);
+  const [notes, setNotes] = useState("");
+  const [partsUsed, setPartsUsed] = useState("");
+  const [actionMessage, setActionMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
-    workOrderService.getOrder(jobId).then((j) => {
+    technicianPortalService.getJob(jobId).then((j) => {
       setJob(j);
-      // Generate a checklist if not present
       if (j) {
-        setChecklist([
-          { id: "c1", label: "Confirm site access and safety clearance", done: false },
-          { id: "c2", label: "Review job notes and customer requirements", done: false },
-          { id: "c3", label: "Inspect system / site conditions before starting", done: false },
-          { id: "c4", label: "Complete required work as described", done: false },
-          { id: "c5", label: "Test and verify system functionality", done: false },
-          { id: "c6", label: "Document all findings and work completed", done: false },
-          { id: "c7", label: "Clean up work area and restore site", done: false },
-          { id: "c8", label: "Brief customer on completed work", done: false },
-        ]);
+        setChecklist(j.checklist);
+        setNotes(j.technician_notes);
+        setPartsUsed(j.service_report?.parts_used ?? "");
       }
       setLoading(false);
     });
@@ -362,6 +389,19 @@ export default function JobDetailPage() {
 
   async function handleStatusUpdate(newStatus: WorkOrderStatus) {
     if (!job) return;
+    if (technicianPortalService.isMaintenanceJob(job)) {
+      const updated = {
+        ...job,
+        status: newStatus,
+        started_at: newStatus === "in_progress" ? new Date().toISOString() : job.started_at,
+        completed_at: newStatus === "completed" ? new Date().toISOString().split("T")[0] : job.completed_at,
+        updated_at: new Date().toISOString().split("T")[0],
+      };
+      setJob(updated);
+      setActionMessage("Maintenance job status updated in this frontend demo.");
+      return;
+    }
+
     const updated = await workOrderService.updateStatus(job.id, newStatus);
     setJob(updated);
   }
@@ -370,9 +410,43 @@ export default function JobDetailPage() {
     setChecklist((prev) => prev.map((i) => (i.id === id ? { ...i, done } : i)));
   }
 
+  async function handleMockAction(action: string) {
+    if (!job) return;
+
+    if (action === "Start Job") {
+      await handleStatusUpdate("in_progress");
+      setActionMessage("Job started. Timer, GPS, and dispatch sync are mocked for now.");
+      return;
+    }
+
+    if (action === "Mark Complete") {
+      await handleStatusUpdate("completed");
+      setActionMessage("Job marked complete in mock data.");
+      return;
+    }
+
+    setActionMessage(`${action} is mocked in this frontend demo.`);
+  }
+
   async function handleSubmitReport(report: ServiceReport) {
     if (!job) return;
     setSubmitting(true);
+    if (technicianPortalService.isMaintenanceJob(job)) {
+      setJob({
+        ...job,
+        status: "completed",
+        service_report: report,
+        completion_report: report,
+        technician_notes: report.technician_notes,
+        completed_at: new Date().toISOString().split("T")[0],
+        updated_at: new Date().toISOString().split("T")[0],
+      });
+      setSubmitted(true);
+      setSubmitting(false);
+      setTimeout(() => router.push("/technician/jobs"), 1500);
+      return;
+    }
+
     const updated = await workOrderService.submitServiceReport(job.id, report);
     setJob(updated);
     setSubmitted(true);
@@ -462,12 +536,54 @@ export default function JobDetailPage() {
               </span>
             </div>
           )}
+          <div className="flex items-start gap-2">
+            <span className="text-sm">↳</span>
+            <span className="text-sm text-white/50">From: {job.source_label}</span>
+          </div>
         </div>
       </div>
 
       <div className="px-4 pt-5">
         {/* Status stepper */}
         <StatusStepper status={job.status} onUpdate={handleStatusUpdate} />
+
+        <Section title="Mock Actions" icon="⚡">
+          <div className="grid grid-cols-2 gap-2">
+            <MockActionButton label="Start Job" tone="primary" onClick={() => handleMockAction("Start Job")} />
+            <MockActionButton label="Upload Before Photos" onClick={() => handleMockAction("Upload Before Photos")} />
+            <MockActionButton label="Upload After Photos" onClick={() => handleMockAction("Upload After Photos")} />
+            <MockActionButton label="Add Notes" onClick={() => handleMockAction("Add Notes")} />
+            <MockActionButton label="Mark Parts Used" onClick={() => handleMockAction("Mark Parts Used")} />
+            <MockActionButton label="Submit Report" onClick={() => handleMockAction("Submit Report")} />
+            <MockActionButton label="Mark Complete" tone="success" onClick={() => handleMockAction("Mark Complete")} />
+          </div>
+          {actionMessage && (
+            <p className="mt-3 rounded-xl px-3 py-2 text-xs text-amber-300" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.16)" }}>
+              {actionMessage}
+            </p>
+          )}
+        </Section>
+
+        <Section title="Solar System Details" icon="☀️">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
+              <p className="text-[10px] text-white/30 uppercase tracking-wide">System</p>
+              <p className="text-sm text-white/70 mt-1">{job.system_name}</p>
+            </div>
+            <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
+              <p className="text-[10px] text-white/30 uppercase tracking-wide">Job Type</p>
+              <p className="text-sm text-white/70 mt-1">{job.type.replaceAll("_", " ")}</p>
+            </div>
+            <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
+              <p className="text-[10px] text-white/30 uppercase tracking-wide">Source</p>
+              <p className="text-sm text-white/70 mt-1">{job.source_label}</p>
+            </div>
+            <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
+              <p className="text-[10px] text-white/30 uppercase tracking-wide">Estimate</p>
+              <p className="text-sm text-white/70 mt-1">{job.estimated_duration} hours</p>
+            </div>
+          </div>
+        </Section>
 
         {/* Description */}
         {job.description && (
@@ -485,9 +601,49 @@ export default function JobDetailPage() {
           />
         </Section>
 
+        <Section title="Parts Used" icon="🧰">
+          {job.parts_needed.length > 0 && (
+            <div className="space-y-2 mb-3">
+              {job.parts_needed.map((part) => (
+                <div
+                  key={part}
+                  className="rounded-xl px-3 py-2 text-sm text-amber-300"
+                  style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.18)" }}
+                >
+                  Planned: {part}
+                </div>
+              ))}
+            </div>
+          )}
+          <textarea
+            rows={3}
+            placeholder="Mark parts actually used, quantities, and serial numbers…"
+            value={partsUsed}
+            onChange={(e) => setPartsUsed(e.target.value)}
+            disabled={isCompleted}
+            className="w-full rounded-xl px-3.5 py-3 text-sm text-white placeholder-white/20 resize-none outline-none disabled:opacity-60"
+            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}
+          />
+        </Section>
+
         {/* Photos */}
-        <Section title="Photo Documentation" icon="📷">
-          <PhotoUploadPanel jobId={job.id} disabled={isCompleted} />
+        <Section title="Photos" icon="📷">
+          <div className="space-y-4">
+            <PhotoUploadPanel jobId={job.id} disabled={isCompleted} label="Upload Before Photos" />
+            <PhotoUploadPanel jobId={job.id} disabled={isCompleted} label="Upload After Photos" />
+          </div>
+        </Section>
+
+        <Section title="Notes" icon="📝">
+          <textarea
+            rows={4}
+            placeholder="Add field notes, customer comments, or internal follow-up details…"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            disabled={isCompleted}
+            className="w-full rounded-xl px-3.5 py-3 text-sm text-white placeholder-white/20 resize-none outline-none disabled:opacity-60"
+            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}
+          />
         </Section>
 
         {/* Completion Report */}
@@ -501,6 +657,7 @@ export default function JobDetailPage() {
                   { label: "Parts Used", val: job.service_report.parts_used },
                   { label: "Recommendations", val: job.service_report.recommendations },
                   { label: "Notes", val: job.service_report.technician_notes },
+                  { label: "Customer Signature", val: job.service_report.customer_signature },
                 ].filter((r) => r.val).map((r) => (
                   <div key={r.label}>
                     <p className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-1">{r.label}</p>

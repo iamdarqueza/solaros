@@ -4,7 +4,7 @@ import PageBreadCrumb from "@/components/common/PageBreadCrumb";
 import MaintenanceSchedule from "@/components/maintenance/MaintenanceSchedule";
 
 export const metadata: Metadata = {
-  title: "Maintenance Schedule | SolarOps",
+  title: "Maintenance Schedule | SolarOS",
   description: "View and manage solar maintenance visits in calendar or list view. Track overdue visits, assign technicians, and reduce missed maintenance.",
 };
 

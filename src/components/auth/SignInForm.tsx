@@ -26,6 +26,11 @@ export default function SignInForm() {
     const urlParams = new URLSearchParams(window.location.search);
     const urlError = urlParams.get('error');
     const urlMessage = urlParams.get('message');
+    const inviteCode = urlParams.get('invite');
+
+    if (inviteCode) {
+      window.localStorage.setItem('solaros_pending_invite', inviteCode);
+    }
     
     if (urlError === 'email_not_allowed' && urlMessage) {
       setError(decodeURIComponent(urlMessage));
@@ -62,7 +67,8 @@ export default function SignInForm() {
       setError((error as Error).message || 'Sign in failed');
       setLoading(false);
     } else {
-      router.push("/");
+      const pendingInvite = new URLSearchParams(window.location.search).get('invite') || window.localStorage.getItem('solaros_pending_invite');
+      router.push(pendingInvite ? `/company-setup?invite=${encodeURIComponent(pendingInvite)}` : "/");
     }
   };
 

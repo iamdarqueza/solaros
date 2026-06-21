@@ -4,7 +4,7 @@ import PageBreadCrumb from "@/components/common/PageBreadCrumb";
 import CustomersTable from "@/components/customers/CustomersTable";
 
 export const metadata: Metadata = {
-  title: "Customers | SolarOps",
+  title: "Customers | SolarOS",
   description: "Manage your solar customers, view installation history, warranties, and service records.",
 };
 

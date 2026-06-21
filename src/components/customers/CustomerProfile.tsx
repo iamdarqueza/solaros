@@ -2,14 +2,22 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { customersService, Customer } from "@/services/customersService";
-import { getCustomerStatusBadge, formatDate } from "./CustomerUIHelpers";
+import {
+  getCustomerStatusBadge,
+  formatDate,
+  getPortalStatusBadge,
+  getWarrantyHealthBadge,
+} from "./CustomerUIHelpers";
 import OverviewTab from "./tabs/OverviewTab";
+import SitesTab from "./tabs/SitesTab";
 import InstallationsTab from "./tabs/InstallationsTab";
 import WarrantiesTab from "./tabs/WarrantiesTab";
 import MaintenanceHistoryTab from "./tabs/MaintenanceHistoryTab";
 import SupportTicketsTab from "./tabs/SupportTicketsTab";
+import WorkOrdersTab from "./tabs/WorkOrdersTab";
 import DocumentsTab from "./tabs/DocumentsTab";
 import NotesTab from "./tabs/NotesTab";
+import ActivityTimelineTab from "./tabs/ActivityTimelineTab";
 
 interface CustomerProfileProps {
   customerId: string;
@@ -17,12 +25,15 @@ interface CustomerProfileProps {
 
 type TabId =
   | "overview"
+  | "sites"
   | "installations"
   | "warranties"
   | "maintenance"
   | "tickets"
+  | "work_orders"
   | "documents"
-  | "notes";
+  | "notes"
+  | "activity";
 
 interface Tab {
   id: TabId;
@@ -32,7 +43,7 @@ interface Tab {
 }
 
 function getInitials(firstName: string, lastName: string): string {
-  return `${firstName[0]}${lastName[0]}`.toUpperCase();
+  return `${firstName[0] ?? ""}${lastName[0] ?? firstName[1] ?? ""}`.toUpperCase();
 }
 
 function getSystemTypeBadge(type: Customer["system_type"]) {
@@ -40,6 +51,7 @@ function getSystemTypeBadge(type: Customer["system_type"]) {
     residential: "Residential",
     commercial: "Commercial",
     industrial: "Industrial",
+    other: "Other",
   };
   return (
     <span className="inline-flex items-center rounded-full bg-blue-50 dark:bg-blue-500/10 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-400">
@@ -108,8 +120,18 @@ export default function CustomerProfile({ customerId }: CustomerProfileProps) {
       ),
     },
     {
+      id: "sites",
+      label: "Sites",
+      count: customer.site_count ?? customer.installations_count,
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-3" />
+        </svg>
+      ),
+    },
+    {
       id: "installations",
-      label: "Installations",
+      label: "Solar Systems",
       count: customer.installations_count,
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -129,7 +151,7 @@ export default function CustomerProfile({ customerId }: CustomerProfileProps) {
     },
     {
       id: "maintenance",
-      label: "Maintenance History",
+      label: "Maintenance",
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -144,6 +166,15 @@ export default function CustomerProfile({ customerId }: CustomerProfileProps) {
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
+        </svg>
+      ),
+    },
+    {
+      id: "work_orders",
+      label: "Work Orders",
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
         </svg>
       ),
     },
@@ -166,17 +197,29 @@ export default function CustomerProfile({ customerId }: CustomerProfileProps) {
         </svg>
       ),
     },
+    {
+      id: "activity",
+      label: "Activity Timeline",
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+    },
   ];
 
   const renderTab = () => {
     switch (activeTab) {
       case "overview": return <OverviewTab customer={customer} />;
+      case "sites": return <SitesTab customer={customer} />;
       case "installations": return <InstallationsTab customer={customer} />;
       case "warranties": return <WarrantiesTab customer={customer} />;
       case "maintenance": return <MaintenanceHistoryTab customer={customer} />;
       case "tickets": return <SupportTicketsTab customer={customer} />;
+      case "work_orders": return <WorkOrdersTab customer={customer} />;
       case "documents": return <DocumentsTab customer={customer} />;
       case "notes": return <NotesTab customer={customer} />;
+      case "activity": return <ActivityTimelineTab customer={customer} />;
       default: return null;
     }
   };
@@ -214,6 +257,7 @@ export default function CustomerProfile({ customerId }: CustomerProfileProps) {
                 </h1>
                 {getCustomerStatusBadge(customer.status)}
                 {getSystemTypeBadge(customer.system_type)}
+                {getPortalStatusBadge(customer.portal_status)}
               </div>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 font-mono">
                 {customer.account_number}
@@ -229,6 +273,14 @@ export default function CustomerProfile({ customerId }: CustomerProfileProps) {
                 Contact
               </h3>
               <div className="space-y-1.5">
+                {customer.contact_person && (
+                  <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                    <svg className="w-4 h-4 flex-shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A8.966 8.966 0 0112 15c2.21 0 4.236.8 5.879 2.129M15 11a3 3 0 10-6 0 3 3 0 006 0z" />
+                    </svg>
+                    {customer.contact_person}
+                  </div>
+                )}
                 <a href={`mailto:${customer.email}`} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 hover:text-brand-500 dark:hover:text-brand-400 transition-colors">
                   <svg className="w-4 h-4 flex-shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -297,7 +349,46 @@ export default function CustomerProfile({ customerId }: CustomerProfileProps) {
                   </div>
                 ))}
               </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {getWarrantyHealthBadge(customer.warranty_status ?? (customer.active_warranties > 0 ? "active" : "none"))}
+                <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                  {customer.site_count ?? customer.installations_count} sites/properties
+                </span>
+                <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                  Upcoming maintenance: {customer.upcoming_maintenance_date ? formatDate(customer.upcoming_maintenance_date) : "Not scheduled"}
+                </span>
+              </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-brand-100 bg-brand-50/60 p-5 dark:border-brand-500/20 dark:bg-brand-500/10">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand-600 dark:text-brand-400">
+              Connected customer record
+            </p>
+            <h2 className="mt-1 text-base font-semibold text-gray-900 dark:text-white">
+              This profile connects sites, solar systems, warranties, documents, maintenance, tickets, work orders, and service history.
+            </h2>
+            <p className="mt-2 max-w-3xl text-sm text-gray-600 dark:text-gray-300">
+              Use this as the admin view of everything that happens after installation. A ticket, maintenance visit, or warranty claim can become a technician work order and then return here as service history.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/support/tickets"
+              className="rounded-lg bg-white px-3 py-2 text-xs font-medium text-brand-600 shadow-sm ring-1 ring-brand-100 hover:bg-brand-50 dark:bg-gray-900 dark:text-brand-400 dark:ring-brand-500/20 dark:hover:bg-brand-500/10"
+            >
+              View Tickets
+            </Link>
+            <Link
+              href="/work-orders/active"
+              className="rounded-lg bg-brand-500 px-3 py-2 text-xs font-medium text-white shadow-sm hover:bg-brand-600"
+            >
+              View Work Orders
+            </Link>
           </div>
         </div>
       </div>

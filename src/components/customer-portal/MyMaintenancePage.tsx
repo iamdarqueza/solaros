@@ -5,9 +5,12 @@ import {
   customerPortalService,
   type MaintenanceRecord,
   type MaintenanceRequestForm,
+  type WorkOrder,
 } from "@/services/customerPortalService";
 
-type Tab = "history" | "request";
+type Tab = "upcoming" | "history" | "request";
+
+const VISIT_STATUSES = ["new", "assigned", "scheduled", "in_progress", "requires_follow_up"];
 
 const WORK_TYPE_ICONS: Record<string, string> = {
   "Annual Inspection": "🔍",
@@ -16,10 +19,19 @@ const WORK_TYPE_ICONS: Record<string, string> = {
   "Emergency Repair": "🚨",
 };
 
+function isUpcomingServiceVisit(order: WorkOrder) {
+  const isMaintenanceLike =
+    order.source === "maintenance_schedule" ||
+    ["maintenance", "inspection", "cleaning"].includes(order.type);
+
+  return isMaintenanceLike && VISIT_STATUSES.includes(order.status);
+}
+
 export default function MyMaintenancePage() {
   const { customer } = useCustomerPortal();
-  const [tab, setTab] = useState<Tab>("history");
+  const [tab, setTab] = useState<Tab>("upcoming");
   const [history, setHistory] = useState<MaintenanceRecord[]>([]);
+  const [upcomingVisits, setUpcomingVisits] = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
@@ -34,11 +46,23 @@ export default function MyMaintenancePage() {
   useEffect(() => {
     if (!customer) return;
     setLoading(true);
-    customerPortalService.getMyMaintenanceHistory(customer.id).then((data) => {
-      setHistory(data);
+    Promise.all([
+      customerPortalService.getMyMaintenanceHistory(customer.id),
+      customerPortalService.getMyWorkOrders(customer.id),
+    ]).then(([records, orders]) => {
+      setHistory(records);
+      setUpcomingVisits(
+        orders
+          .filter(isUpcomingServiceVisit)
+          .sort((a, b) => {
+            const da = a.scheduled_date ? new Date(a.scheduled_date).getTime() : Infinity;
+            const db = b.scheduled_date ? new Date(b.scheduled_date).getTime() : Infinity;
+            return da - db;
+          })
+      );
       setLoading(false);
     });
-  }, [customer?.id]);
+  }, [customer]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -60,6 +84,7 @@ export default function MyMaintenancePage() {
       {/* Tab switcher */}
       <div className="flex rounded-xl bg-gray-100 p-1 gap-1">
         {[
+          { key: "upcoming" as Tab, label: `Upcoming (${upcomingVisits.length})` },
           { key: "history" as Tab, label: "Service History" },
           { key: "request" as Tab, label: "Request a Visit" },
         ].map((t) => (
@@ -74,6 +99,57 @@ export default function MyMaintenancePage() {
           </button>
         ))}
       </div>
+
+      {/* Upcoming tab */}
+      {tab === "upcoming" && (
+        <div>
+          {loading ? (
+            <div className="space-y-3 animate-pulse">
+              {[...Array(2)].map((_, i) => <div key={i} className="h-28 rounded-xl bg-gray-200" />)}
+            </div>
+          ) : upcomingVisits.length === 0 ? (
+            <div className="text-center py-16">
+              <div className="text-5xl mb-3">🗓️</div>
+              <p className="text-base font-semibold text-gray-700">No upcoming maintenance</p>
+              <p className="text-sm text-gray-400 mt-1">Scheduled maintenance visits will appear here.</p>
+              <button
+                onClick={() => setTab("request")}
+                className="mt-4 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 transition-colors"
+              >
+                Request Maintenance
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {upcomingVisits.map((visit) => (
+                <div key={visit.id} className="rounded-2xl border border-brand-100 bg-white p-5 shadow-sm">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">{visit.title}</p>
+                      <p className="text-xs text-gray-500 mt-1">{visit.description}</p>
+                    </div>
+                    <span className="rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-medium capitalize text-brand-700">
+                      {visit.status.replace("_", " ")}
+                    </span>
+                  </div>
+                  <div className="mt-4 grid grid-cols-1 gap-2 text-sm text-gray-600 sm:grid-cols-2">
+                    <p>
+                      <span className="font-medium text-gray-800">Date:</span>{" "}
+                      {visit.scheduled_date
+                        ? new Date(visit.scheduled_date).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })
+                        : "To be confirmed"}
+                    </p>
+                    <p>
+                      <span className="font-medium text-gray-800">Technician:</span>{" "}
+                      {visit.technician_name ?? "To be assigned"}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* History tab */}
       {tab === "history" && (

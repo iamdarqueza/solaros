@@ -3,7 +3,7 @@ import { Metadata } from "next";
 import SupportTicketDetail from "@/components/support/SupportTicketDetail";
 
 export const metadata: Metadata = {
-  title: "Ticket Detail | SolarOps Support",
+  title: "Ticket Detail | SolarOS Support",
   description: "View and manage individual support ticket details, conversation history, and internal notes.",
 };
 

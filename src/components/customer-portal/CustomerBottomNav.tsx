@@ -46,7 +46,7 @@ const BOTTOM_NAV_ITEMS = [
   },
   {
     href: "/portal/work-orders",
-    label: "Orders",
+    label: "Visits",
     icon: (active: boolean) => (
       <svg className="w-6 h-6" fill={active ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={active ? 0 : 2}

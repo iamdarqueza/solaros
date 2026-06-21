@@ -148,6 +148,50 @@ export function getCustomerStatusBadge(status: Customer["status"]) {
   );
 }
 
+export function getPortalStatusBadge(status: Customer["portal_status"] = "not_invited") {
+  const styles = {
+    active: "bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-400",
+    invited: "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400",
+    invite_sent: "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400",
+    not_invited: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
+    expired: "bg-warning-50 text-warning-700 dark:bg-warning-500/10 dark:text-warning-400",
+    revoked: "bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-400",
+  };
+  const labels = {
+    active: "Portal Active",
+    invited: "Invited",
+    invite_sent: "Invite Sent",
+    not_invited: "Not Invited",
+    expired: "Expired",
+    revoked: "Revoked",
+  };
+  return (
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${styles[status]}`}>
+      {labels[status]}
+    </span>
+  );
+}
+
+export function getWarrantyHealthBadge(status: Customer["warranty_status"] = "none") {
+  const styles = {
+    active: "bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-400",
+    expiring_soon: "bg-warning-50 text-warning-700 dark:bg-warning-500/10 dark:text-warning-400",
+    expired: "bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-400",
+    none: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
+  };
+  const labels = {
+    active: "Active",
+    expiring_soon: "Expiring Soon",
+    expired: "Expired",
+    none: "No Warranty",
+  };
+  return (
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${styles[status]}`}>
+      {labels[status]}
+    </span>
+  );
+}
+
 // ─── Date Formatter ───────────────────────────────────────────────────────────
 export function formatDate(dateStr: string): string {
   if (!dateStr) return "—";

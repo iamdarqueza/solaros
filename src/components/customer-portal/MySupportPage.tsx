@@ -38,6 +38,10 @@ export default function MySupportPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [photoName, setPhotoName] = useState("");
+  const [expandedTicketId, setExpandedTicketId] = useState<string | null>(null);
+  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
+  const [mockReplies, setMockReplies] = useState<Record<string, string[]>>({});
 
   const [form, setForm] = useState<SupportRequestForm>({
     subject: "",
@@ -53,7 +57,7 @@ export default function MySupportPage() {
       setTickets(data);
       setLoading(false);
     });
-  }, [customer?.id]);
+  }, [customer]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -68,10 +72,21 @@ export default function MySupportPage() {
     setSuccess(true);
     setSubmitting(false);
     setForm({ subject: "", issueType: "general", description: "", priority: "medium" });
+    setPhotoName("");
     setTimeout(() => {
       setSuccess(false);
       setTab("tickets");
     }, 3000);
+  }
+
+  function addMockReply(ticketId: string) {
+    const reply = replyDrafts[ticketId]?.trim();
+    if (!reply) return;
+    setMockReplies((prev) => ({
+      ...prev,
+      [ticketId]: [...(prev[ticketId] ?? []), reply],
+    }));
+    setReplyDrafts((prev) => ({ ...prev, [ticketId]: "" }));
   }
 
   return (
@@ -138,6 +153,49 @@ export default function MySupportPage() {
                       <span>Opened {new Date(ticket.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
                       {ticket.assigned_to && <span>· Assigned to {ticket.assigned_to}</span>}
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => setExpandedTicketId(expandedTicketId === ticket.id ? null : ticket.id)}
+                      className="mt-4 text-xs font-medium text-brand-600 hover:text-brand-700"
+                    >
+                      {expandedTicketId === ticket.id ? "Hide conversation" : "View conversation and reply"}
+                    </button>
+
+                    {expandedTicketId === ticket.id && (
+                      <div className="mt-4 space-y-3 rounded-xl border border-gray-100 bg-gray-50 p-4">
+                        <div className="rounded-xl bg-white p-3">
+                          <p className="text-xs font-semibold text-gray-500">You</p>
+                          <p className="mt-1 text-sm text-gray-700">{ticket.description}</p>
+                        </div>
+                        <div className="rounded-xl bg-brand-50 p-3">
+                          <p className="text-xs font-semibold text-brand-700">{ticket.assigned_to ?? "SolarOS Support"}</p>
+                          <p className="mt-1 text-sm text-gray-700">
+                            We received your request and will keep updates here.
+                          </p>
+                        </div>
+                        {(mockReplies[ticket.id] ?? []).map((reply, index) => (
+                          <div key={`${ticket.id}-reply-${index}`} className="rounded-xl bg-white p-3">
+                            <p className="text-xs font-semibold text-gray-500">You</p>
+                            <p className="mt-1 text-sm text-gray-700">{reply}</p>
+                          </div>
+                        ))}
+                        <div className="flex gap-2">
+                          <input
+                            value={replyDrafts[ticket.id] ?? ""}
+                            onChange={(e) => setReplyDrafts((prev) => ({ ...prev, [ticket.id]: e.target.value }))}
+                            placeholder="Write a reply..."
+                            className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => addMockReply(ticket.id)}
+                            className="rounded-lg bg-brand-500 px-3 py-2 text-xs font-medium text-white hover:bg-brand-600"
+                          >
+                            Reply
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -224,6 +282,31 @@ export default function MySupportPage() {
                       <span className="text-sm text-gray-800">{PRIORITY_LABELS[p]}</span>
                     </label>
                   ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5" htmlFor="photo-name">
+                  Add photos (optional)
+                </label>
+                <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4">
+                  <p className="text-xs text-gray-500">
+                    Mock upload only. Add a photo filename to show how customers can attach images of the issue.
+                  </p>
+                  <input
+                    id="photo-name"
+                    type="text"
+                    value={photoName}
+                    onChange={(e) => setPhotoName(e.target.value)}
+                    placeholder="Example: inverter-error-screen.jpg"
+                    className="mt-3 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                  />
+                  {photoName && (
+                    <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-gray-600 ring-1 ring-gray-200">
+                      <span>📎</span>
+                      {photoName}
+                    </div>
+                  )}
                 </div>
               </div>
 

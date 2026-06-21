@@ -15,11 +15,16 @@ import {
   getDaysUntil,
   ChecklistProgress,
   TechnicianAvatar,
+  getServiceTypeBadge,
 } from "./MaintenanceUIHelpers";
 import ScheduleModal from "./ScheduleModal";
 import { TECHNICIANS } from "@/services/maintenanceService";
 
 type ViewMode = "calendar" | "list";
+type MaintenanceScheduleProps = {
+  initialView?: ViewMode;
+  initialStatusFilter?: "all" | MaintenanceStatus;
+};
 
 // ── Calendar helpers ──────────────────────────────────────────────────────────
 
@@ -43,12 +48,15 @@ const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
-export default function MaintenanceSchedule() {
+export default function MaintenanceSchedule({
+  initialView = "calendar",
+  initialStatusFilter = "all",
+}: MaintenanceScheduleProps = {}) {
   const router = useRouter();
   const [records, setRecords] = useState<MaintenanceRecord[]>([]);
   const [stats, setStats] = useState<MaintenanceStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<ViewMode>("calendar");
+  const [viewMode, setViewMode] = useState<ViewMode>(initialView);
 
   // Calendar state
   const today = new Date();
@@ -59,7 +67,7 @@ export default function MaintenanceSchedule() {
 
   // List state
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | MaintenanceStatus>("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | MaintenanceStatus>(initialStatusFilter);
   const [techFilter, setTechFilter] = useState("all");
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
@@ -67,6 +75,7 @@ export default function MaintenanceSchedule() {
   // Modal
   const [showModal, setShowModal] = useState(false);
   const [modalDate, setModalDate] = useState<string | undefined>();
+  const [creatingWorkOrderId, setCreatingWorkOrderId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const [recs, s] = await Promise.all([
@@ -141,6 +150,16 @@ export default function MaintenanceSchedule() {
 
   const overdueCount = records.filter((r) => r.status === "overdue").length;
 
+  const handleCreateWorkOrder = async (recordId: string) => {
+    setCreatingWorkOrderId(recordId);
+    try {
+      const updated = await maintenanceService.createWorkOrderForVisit(recordId);
+      setRecords((prev) => prev.map((record) => (record.id === recordId ? updated : record)));
+    } finally {
+      setCreatingWorkOrderId(null);
+    }
+  };
+
   return (
     <div className="space-y-5">
       {/* Overdue Alert */}
@@ -172,7 +191,7 @@ export default function MaintenanceSchedule() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { label: "Scheduled", value: stats?.scheduled ?? "—", color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-500/10", icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" },
-          { label: "Due This Week", value: stats?.due_this_week ?? "—", color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-500/10", icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" },
+          { label: "Due Soon", value: stats?.due_this_week ?? "—", color: "text-orange-600 dark:text-orange-400", bg: "bg-orange-50 dark:bg-orange-500/10", icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" },
           { label: "Overdue", value: stats?.overdue ?? "—", color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-500/10", icon: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" },
           { label: "Completed", value: stats?.completed ?? "—", color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-500/10", icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" },
         ].map((s) => (
@@ -312,7 +331,7 @@ export default function MaintenanceSchedule() {
                     <div>
                       <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Status</label>
                       <div className="mt-2 flex flex-wrap gap-1.5">
-                        {(["all", "scheduled", "in_progress", "completed", "overdue", "cancelled"] as const).map((s) => (
+                        {(["all", "scheduled", "due_soon", "overdue", "in_progress", "completed", "cancelled"] as const).map((s) => (
                           <button
                             key={s}
                             onClick={() => setStatusFilter(s)}
@@ -322,7 +341,7 @@ export default function MaintenanceSchedule() {
                                 : "border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5"
                             }`}
                           >
-                            {s === "in_progress" ? "In Progress" : s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
+                            {s === "in_progress" ? "In Progress" : s === "due_soon" ? "Due Soon" : s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
                           </button>
                         ))}
                       </div>
@@ -384,8 +403,9 @@ export default function MaintenanceSchedule() {
             <div className="flex items-center gap-4 px-5 py-3 border-b border-gray-100 dark:border-gray-800">
               {[
                 { color: "bg-blue-500", label: "Scheduled" },
-                { color: "bg-amber-500", label: "In Progress" },
+                { color: "bg-orange-500", label: "Due Soon" },
                 { color: "bg-red-500", label: "Overdue" },
+                { color: "bg-amber-500", label: "In Progress" },
                 { color: "bg-emerald-500", label: "Completed" },
               ].map((l) => (
                 <div key={l.label} className="flex items-center gap-1.5">
@@ -549,7 +569,26 @@ export default function MaintenanceSchedule() {
                           </p>
                           {getStatusBadge(r.status)}
                         </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate mb-2">{r.system_name}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{r.system_name}</p>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          {getServiceTypeBadge(r.service_type)}
+                          {r.work_order_id ? (
+                            <span className="inline-flex rounded-lg bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                              WO {r.work_order_id}
+                            </span>
+                          ) : (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCreateWorkOrder(r.id);
+                              }}
+                              disabled={creatingWorkOrderId === r.id}
+                              className="inline-flex rounded-lg bg-brand-50 dark:bg-brand-500/10 px-2 py-0.5 text-[11px] font-medium text-brand-600 dark:text-brand-400 disabled:opacity-50"
+                            >
+                              {creatingWorkOrderId === r.id ? "Creating..." : "Create Work Order"}
+                            </button>
+                          )}
+                        </div>
                         <div className="flex items-center gap-2">
                           <TechnicianAvatar name={r.technician_name} />
                           <span className="text-xs text-gray-600 dark:text-gray-400">{r.technician_name}</span>
@@ -590,7 +629,7 @@ export default function MaintenanceSchedule() {
                   : records
                       .filter((r) => {
                         const days = getDaysUntil(r.scheduled_date);
-                        return r.status === "scheduled" && days >= 0 && days <= 30;
+                        return (r.status === "scheduled" || r.status === "due_soon") && days >= 0 && days <= 30;
                       })
                       .slice(0, 5)
                       .map((r) => (
@@ -611,7 +650,7 @@ export default function MaintenanceSchedule() {
                       ))}
                 {!loading && records.filter((r) => {
                   const days = getDaysUntil(r.scheduled_date);
-                  return r.status === "scheduled" && days >= 0 && days <= 30;
+                  return (r.status === "scheduled" || r.status === "due_soon") && days >= 0 && days <= 30;
                 }).length === 0 && (
                   <div className="py-6 text-center">
                     <p className="text-xs text-gray-400 dark:text-gray-500">No upcoming visits this month</p>
@@ -647,7 +686,7 @@ export default function MaintenanceSchedule() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100 dark:border-gray-800">
-                  {["Customer", "Site / System", "Scheduled Date", "Technician", "Status", "Checklist", ""].map(
+                  {["Customer", "Site / System", "Scheduled", "Technician", "Status", "Work Order", "Checklist", ""].map(
                     (col) => (
                       <th
                         key={col}
@@ -663,7 +702,7 @@ export default function MaintenanceSchedule() {
                 {loading
                   ? Array.from({ length: 6 }).map((_, i) => (
                       <tr key={i} className="animate-pulse">
-                        {Array.from({ length: 7 }).map((_, j) => (
+                        {Array.from({ length: 8 }).map((_, j) => (
                           <td key={j} className="px-4 py-4 first:pl-5 last:pr-5">
                             <div className="h-4 rounded bg-gray-100 dark:bg-gray-800" />
                           </td>
@@ -673,7 +712,7 @@ export default function MaintenanceSchedule() {
                   : filteredRecords.length === 0
                   ? (
                     <tr>
-                      <td colSpan={7} className="py-16 text-center">
+                      <td colSpan={8} className="py-16 text-center">
                         <div className="flex flex-col items-center">
                           <svg className="w-12 h-12 text-gray-300 dark:text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -703,6 +742,7 @@ export default function MaintenanceSchedule() {
                           <p className="text-sm font-semibold text-gray-800 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
                             {record.customer_name}
                           </p>
+                          <div className="mt-1">{getServiceTypeBadge(record.service_type)}</div>
                           {record.recurrence_plan_id && (
                             <span className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1 mt-0.5">
                               <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -722,6 +762,7 @@ export default function MaintenanceSchedule() {
                         {/* Date */}
                         <td className="px-4 py-3.5">
                           <p className="text-sm text-gray-700 dark:text-gray-300">{formatDate(record.scheduled_date)}</p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{record.scheduled_time}</p>
                           {record.status === "overdue" && (
                             <p className="text-xs text-red-500 font-medium mt-0.5">
                               {Math.abs(getDaysUntil(record.scheduled_date))}d overdue
@@ -741,6 +782,26 @@ export default function MaintenanceSchedule() {
 
                         {/* Status */}
                         <td className="px-4 py-3.5">{getStatusBadge(record.status)}</td>
+
+                        {/* Work Order */}
+                        <td className="px-4 py-3.5">
+                          {record.work_order_id ? (
+                            <span className="inline-flex rounded-lg bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                              {record.work_order_id}
+                            </span>
+                          ) : (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCreateWorkOrder(record.id);
+                              }}
+                              disabled={creatingWorkOrderId === record.id}
+                              className="h-8 px-3 rounded-lg bg-brand-50 dark:bg-brand-500/10 text-xs font-medium text-brand-600 dark:text-brand-400 hover:bg-brand-100 dark:hover:bg-brand-500/20 disabled:opacity-50 transition-colors"
+                            >
+                              {creatingWorkOrderId === record.id ? "Creating..." : "Create WO"}
+                            </button>
+                          )}
+                        </td>
 
                         {/* Checklist */}
                         <td className="px-4 py-3.5 w-32">
